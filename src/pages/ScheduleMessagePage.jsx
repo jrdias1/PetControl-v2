@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MessageSquare, Send, User, Search, Trash2, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
+import { Calendar, Plus, Search, Send, CheckCircle2, AlertCircle, Clock, MessageSquare, Trash2, PawPrint, Zap, ChevronRight, MessageCircle } from 'lucide-react';
 import AddClientModal from '../components/AddClientModal';
+import { api } from '../services/api';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ScheduleMessagePage = () => {
     const [clients, setClients] = useState([]);
@@ -12,36 +14,21 @@ const ScheduleMessagePage = () => {
     const [scheduledMessages, setScheduledMessages] = useState([]);
     const [showClientList, setShowClientList] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchClients();
-        fetchScheduledMessages();
+        const loadAll = async () => {
+            setLoading(true);
+            await Promise.all([fetchClients(), fetchScheduledMessages()]);
+            setLoading(false);
+        };
+        loadAll();
     }, []);
 
     const fetchScheduledMessages = async () => {
         try {
-            const response = await fetch('https://vmi3061755.contaboserver.net/webhook/pet-control/listar-agenda');
-            if (response.ok) {
-                const data = await response.json();
-
-                // Garantir que temos um array antes de mapear
-                if (!Array.isArray(data)) {
-                    console.error('Resposta do n8n não é um array:', data);
-                    setScheduledMessages([]);
-                    return;
-                }
-
-                const formatted = data.map((item, index) => ({
-                    id: item.row_number || index + 1,
-                    clientName: item.Cliente || item.cliente || '-',
-                    clientPhone: item.Telefone || item.telefone || '-',
-                    message: item.Mensagem || item.mensagem || '-',
-                    date: item['Data de Envio'] || item.data_envio || '-',
-                    time: item['Hora de Envio'] || item.hora_envio || '-',
-                    status: (item.Status || item.status || 'Pendente').toLowerCase() === 'enviado' ? 'sent' : 'scheduled'
-                }));
-                setScheduledMessages(formatted);
-            }
+            const data = await api.fetchAgenda();
+            setScheduledMessages(data);
         } catch (error) {
             console.error('Erro ao buscar agenda:', error);
         }
@@ -49,31 +36,16 @@ const ScheduleMessagePage = () => {
 
     const fetchClients = async () => {
         try {
-            const response = await fetch('https://vmi3061755.contaboserver.net/webhook/pet-control/clientes');
-            if (response.ok) {
-                const data = await response.json();
-                const formatted = data.map((item, index) => ({
-                    id: index + 1,
-                    nome: String(item.Nome || item.name || '-'),
-                    telefone: String(item.Telefone || item.phone || '-'),
-                    pet: String(item.Pet || '-'),
-                }));
-                setClients(formatted);
-            }
+            const data = await api.fetchClients();
+            setClients(data);
         } catch (error) {
             console.error('Erro ao buscar clientes:', error);
         }
     };
 
     const handleNewClientSuccess = (newClient) => {
-        // Refresh client list
         fetchClients();
-        // Automatically select the new client
-        setSelectedClient({
-            nome: newClient.nome,
-            telefone: newClient.telefone,
-            pet: newClient.pet
-        });
+        setSelectedClient(newClient);
         setSearchTerm('');
         setShowClientList(false);
     };
@@ -83,72 +55,51 @@ const ScheduleMessagePage = () => {
         if (!selectedClient || !message || !date || !time) return;
 
         const payload = {
-            status: 'Pendente',
+            status: 'scheduled',
             cliente: selectedClient.nome,
             telefone: selectedClient.telefone,
             mensagem: message,
-            data_envio: date.split('-').reverse().join('/'), // Converte YYYY-MM-DD para DD/MM/YYYY
+            data_envio: date,
             hora_envio: time
         };
 
         try {
-            const response = await fetch('https://vmi3061755.contaboserver.net/webhook/pet-control/agenda', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const success = await api.scheduleMessage(payload);
 
-            if (response.ok) {
-                const newMessage = {
-                    id: Date.now(),
-                    clientName: selectedClient.nome,
-                    clientPhone: selectedClient.telefone,
-                    message: message,
-                    date: payload.data_envio,
-                    time: time,
-                    status: 'scheduled'
-                };
-
-                const updated = [newMessage, ...scheduledMessages];
-                setScheduledMessages(updated);
-                localStorage.setItem('petcontrol_scheduled_messages', JSON.stringify(updated));
-
-                // Reset form
+            if (success) {
+                fetchScheduledMessages();
                 setMessage('');
                 setSelectedClient(null);
                 setSearchTerm('');
                 setDate('');
                 setTime('');
-                alert('Mensagem agendada com sucesso!');
-            } else {
-                alert('Erro ao agendar mensagem no n8n.');
             }
         } catch (error) {
             console.error('Erro:', error);
-            alert('Erro de conexão ao agendar.');
         }
     };
 
-    const deleteScheduled = (id) => {
+    const deleteScheduled = async (id) => {
         const updated = scheduledMessages.filter(m => m.id !== id);
         setScheduledMessages(updated);
-        localStorage.setItem('petcontrol_scheduled_messages', JSON.stringify(updated));
     };
 
-    const handleSend = (msg) => {
-        // Limpa o telefone
+    const handleSend = async (msg) => {
         let phone = msg.clientPhone.replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
         const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg.message)}`;
         window.open(url, '_blank');
 
-        // Atualiza o status para 'sent'
-        const updated = scheduledMessages.map(m =>
-            m.id === msg.id ? { ...m, status: 'sent' } : m
-        );
-        setScheduledMessages(updated);
-        localStorage.setItem('petcontrol_scheduled_messages', JSON.stringify(updated));
+        try {
+            await api.updateMessageStatus(msg.id, 'sent');
+            const updated = scheduledMessages.map(m =>
+                m.id === msg.id ? { ...m, status: 'sent' } : m
+            );
+            setScheduledMessages(updated);
+        } catch (error) {
+            console.error('Erro ao atualizar status:', error);
+        }
     };
 
     const filteredClients = clients.filter(c =>
@@ -156,24 +107,49 @@ const ScheduleMessagePage = () => {
         String(c.telefone).includes(searchTerm)
     );
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.05 }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 10 },
+        visible: { opacity: 1, y: 0 }
+    };
+
     return (
-        <div className="space-y-6 animate-fade-in pb-10">
+        <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="space-y-10"
+        >
             {/* Header */}
-            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 pb-2">
+            <motion.div variants={itemVariants} className="flex flex-col lg:flex-row justify-between lg:items-end gap-8">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-800 tracking-tight">Agenda</h2>
-                    <p className="text-slate-500 text-sm font-medium">Programe avisos automáticos para seus clientes.</p>
+                    <div className="flex items-center gap-2 text-amber-500 font-black uppercase tracking-[0.2em] text-[10px] mb-2">
+                        <Calendar size={14} fill="currentColor" />
+                        Planejamento Semanal
+                    </div>
+                    <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Agenda</h2>
+                    <p className="text-slate-500 font-medium italic mt-1">"Mantenha o coração do seu pet shop batendo forte com avisos automáticos."</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="font-bold text-[11px] text-slate-500 uppercase tracking-tighter">
-                            {scheduledMessages.filter(m => m.status === 'scheduled').length} Pendentes hoje
-                        </span>
+                <div className="flex items-center gap-4">
+                    <div className="bg-white px-6 py-3 rounded-2xl border border-slate-100 shadow-xl shadow-slate-200/40 flex items-center gap-4">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-50"></div>
+                        <div className="flex flex-col">
+                            <span className="font-black text-[10px] text-slate-400 uppercase tracking-widest leading-none mb-1">Status Ativo</span>
+                            <span className="font-black text-sm text-slate-700 leading-none">
+                                {scheduledMessages.filter(m => m.status === 'scheduled').length} Pendentes hoje
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             <AddClientModal
                 isOpen={isModalOpen}
@@ -181,184 +157,230 @@ const ScheduleMessagePage = () => {
                 onSuccess={handleNewClientSuccess}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
                 {/* Form Column */}
-                <div className="lg:col-span-1 space-y-6">
-                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <Calendar className="text-purple-600" size={20} />
-                                Novo Agendamento
-                            </h3>
-                            <button
-                                onClick={() => setIsModalOpen(true)}
-                                className="text-xs flex items-center gap-1 bg-purple-50 text-purple-700 font-bold px-2 py-1 rounded hover:bg-purple-100 transition-colors"
-                            >
-                                <Plus size={14} />
-                                Novo Cliente
-                            </button>
+                <motion.div variants={itemVariants} className="lg:col-span-2">
+                    <div className="bg-white border border-slate-100 rounded-[40px] shadow-xl shadow-slate-200/40 p-8 sticky top-10 overflow-hidden group">
+                        {/* Decoration */}
+                        <div className="absolute -left-10 -top-10 w-32 h-32 bg-amber-50 rounded-full opacity-50 group-hover:scale-110 transition-transform duration-700 pointer-events-none" />
+
+                        <div className="relative z-10">
+                            <div className="flex justify-between items-center mb-10">
+                                <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+                                        <Plus size={20} />
+                                    </div>
+                                    Novo Agendamento
+                                </h3>
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="text-[10px] font-black uppercase tracking-widest bg-slate-50 text-slate-400 px-3 py-1.5 rounded-lg hover:bg-slate-900 hover:text-white transition-all"
+                                >
+                                    Adicionar Cliente
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSchedule} className="space-y-6">
+                                {/* Client Selector */}
+                                <div className="space-y-2 relative">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cliente</label>
+                                    <div className="relative">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por nome..."
+                                            className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 focus:ring-4 focus:ring-amber-500/5 outline-none transition-all font-bold text-slate-700"
+                                            value={selectedClient ? selectedClient.nome : searchTerm}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value);
+                                                setSelectedClient(null);
+                                                setShowClientList(true);
+                                            }}
+                                            onFocus={() => setShowClientList(true)}
+                                        />
+                                        {showClientList && searchTerm && !selectedClient && (
+                                            <div className="absolute z-20 w-full mt-2 bg-white border border-slate-100 rounded-2xl shadow-2xl shadow-slate-200 max-h-56 overflow-hidden">
+                                                <div className="overflow-y-auto max-h-56">
+                                                    {filteredClients.map(client => (
+                                                        <button
+                                                            key={client.id}
+                                                            type="button"
+                                                            className="w-full text-left px-5 py-4 hover:bg-amber-50 flex flex-col border-b border-slate-50 last:border-0 transition-colors"
+                                                            onClick={() => {
+                                                                setSelectedClient(client);
+                                                                setShowClientList(false);
+                                                            }}
+                                                        >
+                                                            <span className="font-black text-slate-800 text-sm tracking-tight">{client.nome}</span>
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{client.pet ? `Pet: ${client.pet}` : client.telefone}</span>
+                                                        </button>
+                                                    ))}
+                                                    {filteredClients.length === 0 && (
+                                                        <div className="p-6 text-center text-slate-400 italic text-sm font-medium">Nenhum cliente farejado...</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Message Box */}
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mensagem Emocional</label>
+                                    <textarea
+                                        className="w-full px-5 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 focus:ring-4 focus:ring-amber-500/5 outline-none h-36 resize-none transition-all font-medium text-slate-700 leading-relaxed"
+                                        placeholder="Ex: Olá Thor! Sentimos sua falta. Que tal um banho relaxante hoje? 🐾"
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                    ></textarea>
+                                </div>
+
+                                {/* Date and Time */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data</label>
+                                        <input
+                                            type="date"
+                                            className="w-full px-5 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 outline-none transition-all font-bold text-slate-700"
+                                            value={date}
+                                            onChange={(e) => setDate(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Horário</label>
+                                        <input
+                                            type="time"
+                                            className="w-full px-5 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 outline-none transition-all font-bold text-slate-700"
+                                            value={time}
+                                            onChange={(e) => setTime(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={!selectedClient || !message || !date || !time}
+                                    className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-100 disabled:text-slate-300 text-white font-black py-5 rounded-2xl flex items-center justify-center gap-3 transition-all mt-6 shadow-xl shadow-amber-100 group active:scale-95"
+                                >
+                                    <Send size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                                    Confirmar Agendamento
+                                </button>
+                            </form>
                         </div>
-
-                        <form onSubmit={handleSchedule} className="space-y-4">
-                            {/* Client Selector */}
-                            <div className="space-y-1 relative">
-                                <label className="text-sm font-semibold text-slate-700">Selecione o Cliente</label>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por nome..."
-                                        className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                        value={selectedClient ? selectedClient.nome : searchTerm}
-                                        onChange={(e) => {
-                                            setSearchTerm(e.target.value);
-                                            setSelectedClient(null);
-                                            setShowClientList(true);
-                                        }}
-                                        onFocus={() => setShowClientList(true)}
-                                    />
-                                    {showClientList && searchTerm && !selectedClient && (
-                                        <div className="absolute z-20 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                            {filteredClients.map(client => (
-                                                <button
-                                                    key={client.id}
-                                                    type="button"
-                                                    className="w-full text-left px-4 py-2 hover:bg-purple-50 flex flex-col border-b border-slate-50 last:border-0"
-                                                    onClick={() => {
-                                                        setSelectedClient(client);
-                                                        setShowClientList(false);
-                                                    }}
-                                                >
-                                                    <span className="font-medium text-slate-800">{client.nome}</span>
-                                                    <span className="text-xs text-slate-500">{client.pet ? `Pet: ${client.pet}` : client.telefone}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Message Box */}
-                            <div className="space-y-1">
-                                <label className="text-sm font-semibold text-slate-700">Mensagem</label>
-                                <textarea
-                                    className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none h-32 resize-none"
-                                    placeholder="Escreva a mensagem aqui..."
-                                    value={message}
-                                    onChange={(e) => setMessage(e.target.value)}
-                                ></textarea>
-                            </div>
-
-                            {/* Date and Time */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-sm font-semibold text-slate-700">Data</label>
-                                    <input
-                                        type="date"
-                                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                        value={date}
-                                        onChange={(e) => setDate(e.target.value)}
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-sm font-semibold text-slate-700">Horário</label>
-                                    <input
-                                        type="time"
-                                        className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 outline-none"
-                                        value={time}
-                                        onChange={(e) => setTime(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <button
-                                type="submit"
-                                disabled={!selectedClient || !message || !date || !time}
-                                className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all mt-4"
-                            >
-                                <Send size={18} />
-                                Agendar Agora
-                            </button>
-                        </form>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* List Column */}
-                <div className="lg:col-span-2">
-                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden h-full flex flex-col">
-                        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <CheckCircle2 className="text-green-500" size={20} />
-                                Mensagens Agendadas
+                <motion.div variants={itemVariants} className="lg:col-span-3">
+                    <div className="bg-white border border-slate-100 rounded-[40px] shadow-xl shadow-slate-200/40 overflow-hidden h-full flex flex-col">
+                        <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/20">
+                            <h3 className="text-xl font-black text-slate-900 flex items-center gap-3 tracking-tight">
+                                <div className="p-2 bg-emerald-100 text-emerald-600 rounded-xl">
+                                    <Clock size={22} fill="currentColor" className="opacity-70" />
+                                </div>
+                                Linha do Tempo
                             </h3>
-                            <span className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded-full font-semibold">
-                                {scheduledMessages.length} total
+                            <span className="bg-amber-100 text-amber-700 text-[10px] px-3 py-1.5 rounded-full font-black uppercase tracking-widest">
+                                {scheduledMessages.length} Lembretes
                             </span>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-2">
-                            {scheduledMessages.length === 0 ? (
-                                <div className="h-64 flex flex-col items-center justify-center text-slate-400 italic">
-                                    <AlertCircle size={48} className="mb-2 opacity-20" />
-                                    <p>Nenhuma mensagem agendada para hoje.</p>
+                        <div className="flex-1 overflow-y-auto p-6 lg:p-10 space-y-6">
+                            {loading ? (
+                                <div className="h-full flex flex-col items-center justify-center py-20">
+                                    <div className="animate-spin text-amber-500 mb-4">
+                                        <Clock size={40} />
+                                    </div>
+                                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Organizando horários...</p>
+                                </div>
+                            ) : scheduledMessages.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center py-20 text-center">
+                                    <div className="w-24 h-24 bg-slate-50 rounded-huge flex items-center justify-center mb-6 text-slate-200">
+                                        <MessageSquare size={48} />
+                                    </div>
+                                    <p className="text-xl font-black text-slate-300 tracking-tight">Céu limpo por aqui 🐾</p>
+                                    <p className="text-slate-400 text-sm mt-2 font-medium">Nenhuma mensagem agendada no radar.</p>
                                 </div>
                             ) : (
-                                <div className="space-y-3">
+                                <AnimatePresence mode="popLayout text">
                                     {scheduledMessages.map((msg) => (
-                                        <div key={msg.id} className={`p-4 border rounded-lg transition-all flex justify-between items-start group ${msg.status === 'sent' ? 'bg-slate-50 border-slate-100 opacity-75' : 'bg-white border-slate-100 hover:border-purple-100'}`}>
-                                            <div className="space-y-2 flex-1">
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${msg.status === 'sent' ? 'bg-slate-200 text-slate-500' : 'bg-purple-100 text-purple-600'}`}>
-                                                        {msg.clientName.charAt(0).toUpperCase()}
-                                                    </span>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <p className="text-sm font-bold text-slate-800">{msg.clientName}</p>
-                                                            {msg.status === 'sent' ? (
-                                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-bold uppercase tracking-wider">Enviado</span>
-                                                            ) : (
-                                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-bold uppercase tracking-wider">Pendente</span>
-                                                            )}
+                                        <motion.div
+                                            key={msg.id}
+                                            layout
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, scale: 0.9 }}
+                                            className={`p-6 border rounded-[32px] transition-all flex flex-col md:flex-row justify-between items-start md:items-center group relative overflow-hidden ${msg.status === 'sent'
+                                                    ? 'bg-slate-50/50 border-slate-100 grayscale-[0.5] opacity-60'
+                                                    : 'bg-white border-slate-100 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-100/30'
+                                                }`}
+                                        >
+                                            <div className="flex-1 flex gap-5 items-start">
+                                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-base shadow-inner group-hover:scale-110 transition-transform ${msg.status === 'sent' ? 'bg-slate-200 text-slate-500' : 'bg-amber-100 text-amber-600'
+                                                    }`}>
+                                                    {msg.clientName.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center flex-wrap gap-2">
+                                                        <p className="text-lg font-black text-slate-900 tracking-tight leading-none">{msg.clientName}</p>
+                                                        {msg.status === 'sent' ? (
+                                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-black uppercase tracking-widest border border-emerald-200">Enviado</span>
+                                                        ) : (
+                                                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-black uppercase tracking-widest border border-amber-200">Agendado</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                            <Calendar size={12} className="text-amber-500" /> {msg.date}
                                                         </div>
-                                                        <div className="flex items-center gap-3 mt-1">
-                                                            <span className="text-[11px] flex items-center gap-1 text-slate-500">
-                                                                <Calendar size={12} /> {msg.date}
-                                                            </span>
-                                                            <span className="text-[11px] flex items-center gap-1 text-slate-500">
-                                                                <Clock size={12} /> {msg.time}
-                                                            </span>
+                                                        <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                            <Clock size={12} className="text-amber-500" /> {msg.time}
                                                         </div>
                                                     </div>
-                                                </div>
-                                                <div className="bg-white/80 p-3 rounded border border-slate-100 text-sm text-slate-600 italic">
-                                                    "{msg.message}"
+                                                    <div className="bg-slate-50 p-4 rounded-2xl text-sm text-slate-600 font-medium italic border border-transparent group-hover:bg-white group-hover:border-slate-100 transition-colors mt-2">
+                                                        "{msg.message}"
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="flex flex-col gap-2 ml-4">
+                                            <div className="flex md:flex-col gap-3 ml-auto md:ml-8 mt-4 md:mt-0 relative z-10">
                                                 <button
                                                     onClick={() => handleSend(msg)}
-                                                    className={`p-2 rounded-full transition-colors ${msg.status === 'sent' ? 'text-slate-400 hover:bg-slate-100' : 'text-green-600 hover:bg-green-50'}`}
-                                                    title="Enviar via WhatsApp"
+                                                    className={`w-14 h-14 flex items-center justify-center rounded-2xl transition-all shadow-sm ${msg.status === 'sent'
+                                                            ? 'bg-slate-100 text-slate-400'
+                                                            : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-100 active:scale-90'
+                                                        }`}
+                                                    title="Enviar agora no WhatsApp"
                                                 >
-                                                    <MessageSquare size={20} />
+                                                    <MessageCircle size={24} />
                                                 </button>
                                                 <button
                                                     onClick={() => deleteScheduled(msg.id)}
-                                                    className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                                                    title="Remover"
+                                                    className="w-14 h-14 flex items-center justify-center bg-white border border-slate-100 text-slate-300 hover:text-rose-500 hover:border-rose-100 hover:bg-rose-50 rounded-2xl transition-all active:scale-90"
+                                                    title="Remover lembrete"
                                                 >
-                                                    <Trash2 size={18} />
+                                                    <Trash2 size={20} />
                                                 </button>
                                             </div>
-                                        </div>
+
+                                            {/* Decoration */}
+                                            {msg.status !== 'sent' && (
+                                                <div className="absolute -right-4 -bottom-4 text-emerald-500/5 rotate-12 group-hover:rotate-0 transition-transform duration-500">
+                                                    <PawPrint size={100} fill="currentColor" />
+                                                </div>
+                                            )}
+                                        </motion.div>
                                     ))}
-                                </div>
+                                </AnimatePresence>
                             )}
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
-        </div>
+
+            <motion.p variants={itemVariants} className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] text-center pt-8">
+                Smart Recall System • v2.1 • Smart Pet Care 🐾
+            </motion.p>
+        </motion.div>
     );
 };
 

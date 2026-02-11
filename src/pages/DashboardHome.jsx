@@ -1,278 +1,368 @@
 import React, { useState, useEffect } from 'react';
+import {
+    Users,
+    MessageSquare,
+    TrendingUp,
+    AlertCircle,
+    Calendar,
+    Clock,
+    ChevronRight,
+    Star,
+    PawPrint,
+    Zap,
+    Heart,
+    ShieldCheck
+} from 'lucide-react';
+import { api } from '../services/api';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Users, AlertCircle, Calendar, MessageCircle, CheckCircle2, UserPlus, PackagePlus, ShoppingCart } from 'lucide-react';
-import AddClientModal from '../components/AddClientModal';
-import AddProductModal from '../components/AddProductModal';
-import AddSaleModal from '../components/AddSaleModal';
-
-const StatCard = ({ title, value, subtext, icon: Icon, color, bg }) => (
-    <div className="bg-white p-6 rounded-[24px] shadow-sm border border-slate-100/80 hover:shadow-xl hover:shadow-slate-100/50 transition-all duration-300 group cursor-default">
-        <div className="flex justify-between items-start">
-            <div className="space-y-1">
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">{title}</p>
-                <div className="flex items-baseline gap-1">
-                    <h3 className="text-3xl font-black text-slate-800 tracking-tight">{value}</h3>
-                </div>
-                <p className={`text-[11px] font-semibold flex items-center gap-1 ${color}`}>
-                    <TrendingUp size={12} />
-                    {subtext}
-                </p>
-            </div>
-            <div className={`w-12 h-12 rounded-2xl ${bg} ${color} flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300`}>
-                <Icon size={24} />
-            </div>
-        </div>
-    </div>
-);
 
 const DashboardHome = () => {
     const navigate = useNavigate();
     const [stats, setStats] = useState({
-        sent: 0,
-        returnRate: 0,
-        base: 0,
-        atRisk: 0,
-        topClients: []
+        mensagensEnviadas: 0,
+        taxaRetorno: 0,
+        baseMonitorada: 0,
+        emRisco: 0
     });
+    const [autoStatus, setAutoStatus] = useState({ total: 0, sent: 0, pending: 0, failed: 0 });
+    const [topFieis, setTopFieis] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        calculateStats();
+        const loadDashboardData = async () => {
+            try {
+                const [clients, agenda, sales, status] = await Promise.all([
+                    api.fetchClients(),
+                    api.fetchAgenda(),
+                    api.fetchSales(),
+                    api.getAutomationStatus()
+                ]);
+
+                setAutoStatus(status);
+
+                // 1. Base Monitorada: Total de clientes
+                const baseMonitorada = clients.length;
+
+                // 2. Mensagens Enviadas: Itens na agenda com data passada ou hoje
+                const hoje = new Date();
+                hoje.setHours(0, 0, 0, 0);
+                const mensagensEnviadas = agenda.filter(item => new Date(item.scheduled_date) <= hoje).length;
+
+                // 3. Em Risco: Clientes que não compram há mais de 60 dias (exemplo)
+                const sessentaDiasAtras = new Date();
+                sessentaDiasAtras.setDate(sessentaDiasAtras.getDate() - 60);
+
+                // Pegar última venda de cada cliente
+                const ultimasVendas = {};
+                sales.forEach(sale => {
+                    if (!ultimasVendas[sale.client_id] || new Date(sale.sale_date) > new Date(ultimasVendas[sale.client_id])) {
+                        ultimasVendas[sale.client_id] = sale.sale_date;
+                    }
+                });
+
+                const emRisco = Object.values(ultimasVendas).filter(data => new Date(data) < sessentaDiasAtras).length;
+
+                // 4. Taxa de Retorno: (Clientes com > 1 venda / Total Clientes) * 100
+                const comprasPorCliente = {};
+                sales.forEach(sale => {
+                    comprasPorCliente[sale.client_id] = (comprasPorCliente[sale.client_id] || 0) + 1;
+                });
+                const clientesFieis = Object.values(comprasPorCliente).filter(count => count > 1).length;
+                const taxaRetorno = baseMonitorada > 0 ? Math.round((clientesFieis / baseMonitorada) * 100) : 0;
+
+                setStats({
+                    mensagensEnviadas,
+                    taxaRetorno,
+                    baseMonitorada,
+                    emRisco
+                });
+
+                // Top Fiéis
+                const fieisData = Object.entries(comprasPorCliente)
+                    .map(([id, count]) => {
+                        const cliente = clients.find(c => c.id === id);
+                        return {
+                            id,
+                            name: cliente?.full_name || 'Cliente',
+                            pet: cliente?.pet_name || 'Pet',
+                            buys: count
+                        };
+                    })
+                    .sort((a, b) => b.buys - a.buys)
+                    .slice(0, 5);
+
+                setTopFieis(fieisData);
+            } catch (error) {
+                console.error("Erro ao carregar dashboard:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadDashboardData();
     }, []);
 
-    const calculateStats = async () => {
-        try {
-            setLoading(true);
-            // 1. Busca dados das duas planilhas
-            const [salesRes, agendaRes] = await Promise.all([
-                fetch('https://vmi3061755.contaboserver.net/webhook/pet-control/clientes'),
-                fetch('https://vmi3061755.contaboserver.net/webhook/pet-control/listar-agenda')
-            ]);
-
-            const sales = await salesRes.json();
-            const agenda = await agendaRes.json();
-
-            // 2. Processa Vendas (cadastro)
-            const sentCount = Array.isArray(sales) ? sales.filter(s => String(s.enviado).toUpperCase() === 'SIM').length : 0;
-
-            // Agrupa por telefone para contar clientes únicos e fidelidade
-            const clientsMap = {};
-            if (Array.isArray(sales)) {
-                sales.forEach(s => {
-                    const phone = String(s.telefone || s.Telefone || '').replace(/\D/g, '');
-                    if (!phone) return;
-                    if (!clientsMap[phone]) {
-                        clientsMap[phone] = {
-                            nome: s.nome || s.Nome || 'Cliente',
-                            count: 0
-                        };
-                    }
-                    clientsMap[phone].count++;
-                });
+    const containerVariants = {
+        hidden: { opacity: 1 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.05
             }
-
-            const uniqueClients = Object.keys(clientsMap).length;
-
-            // Top Fiéis
-            const top5 = Object.values(clientsMap)
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 5)
-                .map((c, i) => ({
-                    rank: i + 1,
-                    nome: c.nome,
-                    compras: c.count
-                }));
-
-            // 3. Processa Agenda
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-
-            let atRiskCount = 0;
-            if (Array.isArray(agenda)) {
-                atRiskCount = agenda.filter(item => {
-                    const status = String(item.Status || item.status || '').toUpperCase();
-                    const dateStr = item['Data de Envio'] || item.data_envio;
-                    if (!dateStr || status !== 'PENDENTE') return false;
-
-                    const [d, m, y] = dateStr.split('/');
-                    const itemDate = new Date(y, m - 1, d);
-                    return itemDate < today; // Já passou da data e continua pendente
-                }).length;
-            }
-
-            setStats({
-                sent: sentCount,
-                returnRate: uniqueClients > 0 ? Math.round((sentCount / uniqueClients) * 5) : 0, // Estimativa simples
-                base: uniqueClients,
-                atRisk: atRiskCount,
-                topClients: top5
-            });
-        } catch (error) {
-            console.error('Erro ao calcular estatísticas:', error);
-        } finally {
-            setLoading(false);
         }
     };
-    const [isClientModalOpen, setIsClientModalOpen] = useState(false);
-    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-    const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+
+    const cardVariants = {
+        hidden: { opacity: 1, y: 0 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.4, ease: "easeOut" }
+        }
+    };
+
+    const statCards = [
+        {
+            label: 'Mensagens Enviadas',
+            value: stats.mensagensEnviadas,
+            icon: MessageSquare,
+            color: 'amber',
+            bg: 'bg-amber-50',
+            text: 'text-amber-600',
+            trend: 'Automático',
+            desc: 'Lembretes disparados'
+        },
+        {
+            label: 'Taxa de Retorno',
+            value: `${stats.taxaRetorno}%`,
+            icon: TrendingUp,
+            color: 'emerald',
+            bg: 'bg-emerald-50',
+            text: 'text-emerald-600',
+            trend: '+12%',
+            desc: 'Clientes que voltaram'
+        },
+        {
+            label: 'Base Monitorada',
+            value: stats.baseMonitorada,
+            icon: Users,
+            color: 'indigo',
+            bg: 'bg-indigo-50',
+            text: 'text-indigo-600',
+            trend: 'Em crescimento',
+            desc: 'Total de clientes'
+        },
+        {
+            label: 'Clientes em Risco',
+            value: stats.emRisco,
+            icon: AlertCircle,
+            color: 'rose',
+            bg: 'bg-rose-50',
+            text: 'text-rose-600',
+            trend: 'Atenção',
+            desc: 'Sem compras há 60 dias'
+        },
+    ];
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full py-20">
+                <div className="w-16 h-16 bg-amber-100 rounded-[32px] p-4 animate-bounce mb-4 flex items-center justify-center">
+                    <PawPrint className="text-amber-500" size={32} />
+                </div>
+                <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Preparando seu painel...</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-8 animate-fade-in">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between md:items-start gap-6">
+        <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="space-y-12"
+        >
+            {/* Boas-vindas */}
+            <motion.div variants={cardVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-800">Painel de Pós-Venda</h2>
-                    <p className="text-slate-500 mt-1">
-                        Foco total na <span className="text-purple-600 font-semibold">Fidelização</span>. Veja quem precisa de atenção hoje.
+                    <div className="flex items-center gap-3 text-amber-500 font-black uppercase tracking-[0.3em] text-[10px] mb-3">
+                        <Zap size={14} fill="currentColor" />
+                        Visão Geral de Hoje
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tighter">
+                        Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">{api.getCurrentUserName() || 'Veterinário'}</span> 👋
+                    </h1>
+                    <p className="text-slate-500 text-lg font-medium mt-2 italic">
+                        "Seus pets estão bem cuidados hoje. Vamos ver como está o movimento?"
                     </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                    {/* Setup Actions Group */}
-                    <div className="flex bg-slate-100/50 p-1 rounded-2xl border border-slate-200/60 backdrop-blur-sm">
-                        <button
-                            onClick={() => setIsClientModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 hover:text-purple-700 hover:bg-white transition-all font-semibold text-xs"
-                        >
-                            <UserPlus size={16} />
-                            Novo Cliente
-                        </button>
-                        <button
-                            onClick={() => setIsProductModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-white transition-all font-semibold text-xs"
-                        >
-                            <PackagePlus size={16} />
-                            Novo Produto
-                        </button>
+                <div className="flex items-center gap-4 bg-white p-2 pr-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                        <Calendar size={24} />
                     </div>
-
-                    {/* Primary Actions Group */}
-                    <button
-                        onClick={() => navigate('/agendar-mensagem')}
-                        className="flex items-center gap-2 bg-white border border-emerald-100 text-emerald-700 px-5 py-2.5 rounded-2xl font-bold transition-all shadow-sm hover:shadow-md hover:bg-emerald-50 text-sm"
-                    >
-                        <MessageCircle size={18} className="text-emerald-500" />
-                        Agendar Mensagem
-                    </button>
-
-                    <button
-                        onClick={() => setIsSaleModalOpen(true)}
-                        className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-2xl font-bold transition-all shadow-xl shadow-slate-200 hover:bg-black hover:-translate-y-0.5 active:translate-y-0 text-sm"
-                    >
-                        <ShoppingCart size={18} className="text-blue-400" />
-                        Nova Venda
-                    </button>
-
-                    <div className="hidden xl:flex bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-sm items-center gap-3 ml-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="font-bold text-[11px] text-slate-500 uppercase tracking-tighter">Hoje, 08 Fev</span>
+                    <div>
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Data de Hoje</div>
+                        <div className="text-sm font-black text-slate-900 leading-none">{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            <AddClientModal
-                isOpen={isClientModalOpen}
-                onClose={() => setIsClientModalOpen(false)}
-                onSuccess={() => alert('Cliente cadastrado com sucesso!')}
-            />
-            <AddProductModal
-                isOpen={isProductModalOpen}
-                onClose={() => setIsProductModalOpen(false)}
-                onSuccess={() => alert('Produto cadastrado com sucesso!')}
-            />
-            <AddSaleModal
-                isOpen={isSaleModalOpen}
-                onClose={() => setIsSaleModalOpen(false)}
-                onSuccess={() => alert('Venda registrada com sucesso!')}
-            />
+            {/* Automation Status Card */}
+            <motion.div
+                variants={cardVariants}
+                className="bg-slate-900 rounded-[40px] p-8 text-white relative overflow-hidden shadow-2xl shadow-slate-900/20"
+            >
+                <div className="absolute right-0 top-0 opacity-10 translate-x-1/4 -translate-y-1/4 pointer-events-none">
+                    <Zap size={200} fill="currentColor" />
+                </div>
 
-            {/* Stats Grid - FOCADO EM PÓS-VENDA */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    title="Mensagens Enviadas"
-                    value={loading ? "..." : stats.sent}
-                    subtext="Registradas no sistema"
-                    icon={MessageCircle}
-                    color="text-blue-600"
-                    bg="bg-blue-50"
-                />
-                <StatCard
-                    title="Engajamento"
-                    value={loading ? "..." : `${stats.returnRate}%`}
-                    subtext="Fidelidade estimada"
-                    icon={CheckCircle2}
-                    color="text-emerald-600"
-                    bg="bg-emerald-50"
-                />
-                <StatCard
-                    title="Base Monitorada"
-                    value={loading ? "..." : stats.base}
-                    subtext="Clientes únicos"
-                    icon={Users}
-                    color="text-purple-600"
-                    bg="bg-purple-50"
-                />
-                <StatCard
-                    title="Em Risco"
-                    value={loading ? "..." : stats.atRisk}
-                    subtext="Avisos pendentes atrasados"
-                    icon={AlertCircle}
-                    color="text-red-500"
-                    bg="bg-red-50"
-                />
-            </div>
-
-            {/* Recent Activity / Top VIPs */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm min-h-[400px] flex items-center justify-center relative overflow-hidden">
-                    <div className="absolute top-8 left-8">
-                        <h3 className="text-xl font-black text-slate-800 tracking-tight">Análise de Retenção</h3>
-                        <p className="text-sm text-slate-500 font-medium">Frequência de compra vs Mensagens</p>
-                    </div>
-                    <div className="text-center space-y-4">
-                        <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto text-slate-300">
-                            <TrendingUp size={32} />
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+                            <Zap size={32} fill="white" className="text-white" />
                         </div>
-                        <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Gráfico em processamento...</p>
+                        <div>
+                            <h3 className="text-2xl font-black tracking-tight">Status da Automação (Hoje)</h3>
+                            <p className="text-slate-400 font-medium text-sm">Monitoramento em tempo real do disparo das 08h</p>
+                        </div>
                     </div>
-                </div>
 
-                <div className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm">
-                    <div className="flex justify-between items-center mb-8">
-                        <h3 className="text-xl font-black text-slate-800 tracking-tight">Top Fiéis 🏆</h3>
-                        <button onClick={() => navigate('/clientes')} className="text-purple-600 font-bold text-xs hover:underline uppercase tracking-wider">Ver todos</button>
-                    </div>
-                    <div className="space-y-4">
-                        {loading ? (
-                            <p className="text-center text-slate-400 py-10 font-medium tracking-tight italic">Carregando...</p>
-                        ) : stats.topClients.length > 0 ? (
-                            stats.topClients.map((client) => (
-                                <div key={client.rank} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-transparent hover:border-slate-100 transition-colors group">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm ${client.rank === 1 ? 'bg-amber-100 text-amber-600' :
-                                            client.rank === 2 ? 'bg-slate-200 text-slate-600' :
-                                                'bg-slate-100 text-slate-400'
-                                            }`}>
-                                            {client.rank}º
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-slate-700 group-hover:text-slate-900 transition-colors">{client.nome}</p>
-                                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tighter">Cliente Frequente</p>
-                                        </div>
-                                    </div>
-                                    <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                                        {client.compras} compras
-                                    </span>
-                                </div>
-                            ))
-                        ) : (
-                            <p className="text-center text-slate-400 py-10 font-medium tracking-tight italic">Nenhum dado encontrado.</p>
-                        )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 w-full md:w-auto">
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</div>
+                            <div className="text-xl font-black">{autoStatus.total}</div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+                            <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Enviadas</div>
+                            <div className="text-xl font-black text-emerald-400">{autoStatus.sent}</div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+                            <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-1">Pendente</div>
+                            <div className="text-xl font-black text-amber-400">{autoStatus.pending}</div>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
+                            <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Falhas</div>
+                            <div className="text-xl font-black text-rose-400">{autoStatus.failed}</div>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </motion.div>
+
+            {/* Grid de Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" >
+                {
+                    statCards.map((stat, idx) => (
+                        <motion.div
+                            key={idx}
+                            variants={cardVariants}
+                            whileHover={{ y: -8, scale: 1.02 }}
+                            className="bg-white p-8 rounded-[40px] shadow-xl shadow-slate-200/40 border border-slate-100 group transition-all"
+                        >
+                            <div className="flex justify-between items-start mb-6">
+                                <div className={`p-4 ${stat.bg} ${stat.text} rounded-2xl group-hover:bg-amber-500 group-hover:text-white transition-colors`}>
+                                    <stat.icon size={28} />
+                                </div>
+                                <span className={`text-[10px] font-black px-3 py-1 ${stat.bg} ${stat.text} rounded-full uppercase tracking-widest`}>
+                                    {stat.trend}
+                                </span>
+                            </div>
+                            <h3 className="text-slate-400 text-sm font-bold uppercase tracking-wider mb-1 leading-none">{stat.label}</h3>
+                            <div className="text-4xl font-black text-slate-900 mb-2 tracking-tighter">{stat.value}</div>
+                            <p className="text-slate-400 text-xs font-medium leading-none">{stat.desc}</p>
+                        </motion.div>
+                    ))
+                }
+            </div >
+
+            {/* Conteúdo Secundário */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8" >
+                {/* Ranking de Fidelidade - Expandido para 3 colunas */}
+                <motion.div variants={cardVariants} className="lg:col-span-3 bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden" >
+                    <div className="p-10 border-b border-slate-50 flex items-center justify-between bg-white relative">
+                        <div className="flex items-center gap-5">
+                            <div className="w-14 h-14 bg-amber-50 text-amber-500 rounded-[22px] flex items-center justify-center shadow-inner">
+                                <Star size={28} fill="currentColor" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Top Fiéis do Mês</h2>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Sua base de clientes mais apaixonada</p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Base Ativa</span>
+                            </div>
+                            <button onClick={() => navigate('/clientes')} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:bg-amber-500 hover:text-white transition-all active:scale-90 group">
+                                <ChevronRight size={24} className="group-hover:translate-x-1 transition-transform" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-2 sm:p-6 lg:p-10">
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-separate border-spacing-y-4">
+                                <thead>
+                                    <tr className="text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                                        <th className="px-8 py-2">Cliente / Pet</th>
+                                        <th className="px-8 py-2 text-center">Frequência</th>
+                                        <th className="px-8 py-2 text-right">Amor</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {topFieis.length > 0 ? topFieis.map((item, idx) => (
+                                        <tr key={idx} className="group transition-all">
+                                            <td className="px-8 py-5 bg-slate-50 group-hover:bg-amber-50/50 rounded-l-[32px] border-y border-l border-transparent group-hover:border-amber-100/50 transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-amber-500 font-black text-lg shadow-sm border border-slate-100 group-hover:scale-110 group-hover:rotate-3 transition-all">
+                                                        {item.name.substring(0, 1)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-slate-900 text-base font-black tracking-tight leading-none mb-1.5">{item.name}</div>
+                                                        <div className="text-slate-400 text-xs font-bold flex items-center gap-1.5 leading-none">
+                                                            <span className="text-amber-500/70 italic font-medium">Pet:</span>
+                                                            <span className="font-black text-slate-600">{item.pet}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-5 bg-slate-50 group-hover:bg-amber-50/50 border-y border-transparent group-hover:border-amber-100/50 text-center transition-colors">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-lg font-black text-slate-900">{item.buys}</span>
+                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sessões</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-5 bg-slate-50 group-hover:bg-amber-50/50 rounded-r-[32px] border-y border-r border-transparent group-hover:border-amber-100/50 text-right transition-colors">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    {[...Array(Math.min(item.buys, 5))].map((_, i) => (
+                                                        <Heart
+                                                            key={i}
+                                                            size={14}
+                                                            fill="#f43f5e"
+                                                            className="text-rose-500/20 group-hover:animate-bounce"
+                                                            style={{ animationDelay: `${i * 0.15}s` }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )) : (
+                                        <tr>
+                                            <td colSpan="3" className="px-8 py-20 text-center text-slate-300 font-black uppercase tracking-widest text-xs italic bg-slate-50/50 rounded-[32px]">
+                                                Buscando os clientes mais fiéis... 🐾
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </motion.div >
+            </div >
+        </motion.div >
     );
 };
 

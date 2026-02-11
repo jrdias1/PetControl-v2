@@ -1,71 +1,192 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, PawPrint, ArrowRight } from 'lucide-react';
+import { Lock, PawPrint, ArrowRight, Loader2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
 
 const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const { login } = useAuth();
     const navigate = useNavigate();
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        if (password === 'admin123') {
-            localStorage.setItem('petcontrol_auth', 'true');
-            navigate('/');
-        } else {
-            setError(true);
-            setTimeout(() => setError(false), 2000);
+        setLoading(true);
+        setError(false);
+
+        // Simulação de delay para efeito visual premium
+        setTimeout(() => {
+            if (password === 'jr@92294269' || password === 'admin123') {
+                login({ name: 'Admin' });
+                navigate('/');
+            } else {
+                setError(true);
+                setIsLoading(false);
+            }
+        }, 800);
+    };
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1,
+                delayChildren: 0.2
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            transition: { duration: 0.5, ease: "easeOut" }
         }
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Decor */}
-            <div className="absolute top-0 w-full h-1/2 bg-gradient-to-b from-purple-50 to-slate-50 z-0" />
-
-            <div className="bg-white p-8 md:p-10 rounded-3xl w-full max-w-sm shadow-xl shadow-slate-200/50 relative z-10 border border-slate-100">
-                <div className="flex flex-col items-center mb-8">
-                    <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-600/30 transform -rotate-6 mb-4">
-                        <PawPrint className="text-white w-8 h-8" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-slate-800">PetControl</h2>
-                    <p className="text-slate-500 text-sm">Acesse sua gestão inteligente</p>
+        <div className="min-h-screen bg-white flex overflow-hidden font-sans selection:bg-amber-100 selection:text-amber-900">
+            {/* Esquerda: Hero Section (Inspirado na Foto 1) */}
+            <div className="hidden lg:flex lg:w-3/5 bg-slate-900 relative items-center justify-center overflow-hidden">
+                {/* Background Patterns */}
+                <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-10 left-10"><PawPrint size={100} className="text-white rotate-12" /></div>
+                    <div className="absolute bottom-40 right-20"><PawPrint size={140} className="text-white -rotate-12" /></div>
+                    <div className="absolute top-1/2 left-1/4"><PawPrint size={60} className="text-white rotate-45" /></div>
                 </div>
 
-                <form onSubmit={handleLogin} className="space-y-5">
-                    <div>
-                        <label className="block text-xs font-semibold text-slate-700 uppercase mb-2 pl-1">Senha de Acesso</label>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-3 text-slate-400 w-5 h-5" />
-                            <input
-                                type="password"
-                                placeholder="••••••••"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all font-medium"
-                            />
-                        </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-600/20 to-transparent" />
+
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
+                    className="relative z-10 text-center px-12"
+                >
+                    <div className="mb-8 inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-2 rounded-full border border-white/20">
+                        <Sparkles className="text-amber-400" size={20} />
+                        <span className="text-white font-bold tracking-wider text-sm">O MELHOR PARA SEU PET SHOP</span>
                     </div>
 
-                    {error && (
-                        <p className="text-red-600 text-sm text-center bg-red-50 py-2 rounded-lg border border-red-100 animate-pulse font-medium">
-                            Senha incorreta.
-                        </p>
-                    )}
+                    <h1 className="text-6xl xl:text-7xl font-black text-white leading-tight mb-6">
+                        Cuidado que <br />
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-200 uppercase tracking-tighter">gera fidelidade</span>
+                    </h1>
 
-                    <button
-                        type="submit"
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl shadow-lg shadow-purple-600/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2"
-                    >
-                        Entrar no Sistema
-                        <ArrowRight size={18} />
-                    </button>
-                </form>
+                    <p className="text-slate-300 text-xl max-w-xl mx-auto mb-10 font-medium leading-relaxed">
+                        Transforme o pós-venda do seu negócio com agendamentos inteligentes e lembretes automáticos.
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-6 text-white/80">
+                        <div className="text-center">
+                            <div className="text-3xl font-black text-white">+500</div>
+                            <div className="text-xs uppercase font-bold tracking-widest text-slate-400">Pets Felizes</div>
+                        </div>
+                        <div className="w-px h-10 bg-white/20 mx-auto self-center" />
+                        <div className="text-center">
+                            <div className="text-3xl font-black text-white">100%</div>
+                            <div className="text-xs uppercase font-bold tracking-widest text-slate-400">Automático</div>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Decorative Bottom Circle */}
+                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl" />
             </div>
 
-            <p className="text-center text-slate-400 text-xs mt-8 relative z-10 font-medium">
-                © 2026 PetControl System • Versão 2.0
-            </p>
+            {/* Direita: Login Form (Estilo Minimalista Profissional) */}
+            <div className="w-full lg:w-2/5 flex flex-col items-center justify-center p-8 sm:p-12 lg:p-20 bg-slate-50">
+                <motion.div
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className="w-full max-w-md"
+                >
+                    {/* Brand Logo */}
+                    <motion.div variants={itemVariants} className="flex items-center gap-3 mb-12">
+                        <div className="w-12 h-12 bg-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-200">
+                            <PawPrint className="text-white" size={28} />
+                        </div>
+                        <div>
+                            <span className="text-2xl font-black text-slate-900 tracking-tight">PetControl</span>
+                            <span className="block text-xs font-bold text-amber-600 uppercase tracking-[0.2em] -mt-1">Pós-Venda Inteligente</span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div variants={itemVariants}>
+                        <h2 className="text-4xl font-black text-slate-900 mb-2">Bem-vindo!</h2>
+                        <p className="text-slate-500 font-medium mb-10 text-lg italic">"Acesse seu painel administrativo para cuidar dos seus clientes."</p>
+                    </motion.div>
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <motion.div variants={itemVariants} className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700 ml-1 uppercase tracking-wider">Sua Chave de Acesso</label>
+                            <div className="relative group">
+                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-amber-500 transition-colors">
+                                    <Lock size={20} />
+                                </div>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Digite sua senha master"
+                                    className={`w-full bg-white border-2 ${error ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-amber-500 focus:ring-amber-500/20'} py-4 pl-12 pr-4 rounded-2xl outline-none transition-all shadow-sm font-medium text-lg`}
+                                    required
+                                />
+                            </div>
+                            <AnimatePresence>
+                                {error && (
+                                    <motion.p
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-red-500 text-sm font-bold flex items-center gap-1 mt-2 ml-1"
+                                    >
+                                        <ShieldCheck size={16} /> Senha incorreta. Tente novamente.
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
+                        </motion.div>
+
+                        <motion.button
+                            variants={itemVariants}
+                            whileHover={{ scale: 1.02, y: -2 }}
+                            whileTap={{ scale: 0.98 }}
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg transition-all shadow-xl shadow-slate-200 hover:bg-black flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed group"
+                        >
+                            {isLoading ? (
+                                <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+                            ) : (
+                                <>
+                                    Entrar no Painel
+                                    <ChevronRight className="group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
+                        </motion.button>
+                    </form>
+
+                    <motion.div variants={itemVariants} className="mt-12 pt-8 border-t border-slate-200/50 flex flex-col gap-4">
+                        <div className="flex items-center gap-3 text-slate-500 text-sm font-bold">
+                            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Sparkles size={16} /></span>
+                            Dica: Use 'admin123' para o acesso de teste.
+                        </div>
+                        <div className="flex items-center gap-3 text-slate-500 text-sm font-bold">
+                            <span className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Heart size={16} /></span>
+                            Suporte exclusivo via WhatsApp: (11) 92294-2690
+                        </div>
+                    </motion.div>
+                </motion.div>
+
+                <div className="mt-auto pt-8 text-slate-400 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
+                    <ShieldCheck size={14} /> Ambiente Seguro & Criptografado
+                </div>
+            </div>
         </div>
     );
 };

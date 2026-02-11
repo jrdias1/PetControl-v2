@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, User, Phone, Calendar, MessageCircle, MoreVertical, Filter, Plus } from 'lucide-react';
+import { Search, Plus, Phone, Calendar, MessageCircle, PawPrint, Heart, ChevronRight, User as UserIcon } from 'lucide-react';
 import AddClientModal from '../components/AddClientModal';
 import ClientHistoryModal from '../components/ClientHistoryModal';
+import { api } from '../services/api';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const ClientsPage = () => {
     const [clients, setClients] = useState([]);
@@ -15,76 +17,11 @@ const ClientsPage = () => {
         fetchClients();
     }, []);
 
-    // Helper para buscar valor independente de maiúsculas/minúsculas/espaços
-    const getValue = (item, keys) => {
-        const itemKeys = Object.keys(item);
-        for (const key of keys) {
-            // Busca exata ou aproximada (case insensitive + trim)
-            const foundKey = itemKeys.find(k => k.toLowerCase().trim() === key.toLowerCase().trim());
-            if (foundKey && item[foundKey]) return item[foundKey];
-        }
-        return '-';
-    };
-
     const fetchClients = async () => {
         setLoading(true);
         try {
-            const response = await fetch('https://vmi3061755.contaboserver.net/webhook/pet-control/clientes');
-            if (response.ok) {
-                const data = await response.json();
-
-                // Agrupamento por Nome + Telefone
-                const grouped = data.reduce((acc, item) => {
-                    const nome = String(getValue(item, ['Nome', 'name'])).trim();
-                    const telefone = String(getValue(item, ['Telefone', 'phone'])).trim();
-                    const key = `${nome.toLowerCase()}-${telefone}`;
-
-                    const sale = {
-                        produto: getValue(item, ['Produto', 'produtos', 'products']),
-                        data: getValue(item, ['Data', 'dia', 'date']),
-                        dataRaw: getValue(item, ['Data', 'dia', 'date']), // Para ordenação
-                        proximoContato: getValue(item, ['Data de Envio', 'DataEnvio', 'Envio', 'proximoContato'])
-                    };
-
-                    if (!acc[key]) {
-                        acc[key] = {
-                            nome: nome,
-                            telefone: telefone,
-                            pet: getValue(item, ['Pet']),
-                            history: [sale]
-                        };
-                    } else {
-                        acc[key].history.push(sale);
-                        // Atualiza Pet se estiver vazio no registro anterior
-                        if (acc[key].pet === '-' || !acc[key].pet) {
-                            acc[key].pet = getValue(item, ['Pet']);
-                        }
-                    }
-                    return acc;
-                }, {});
-
-                // Converte em array e processa última compra
-                const formattedClients = Object.values(grouped).map((client, index) => {
-                    // Ordena histórico para pegar a última compra
-                    const sortedHistory = [...client.history].sort((a, b) => new Date(b.dataRaw) - new Date(a.dataRaw));
-                    const lastSale = sortedHistory[0];
-
-                    return {
-                        id: index + 1,
-                        ...client,
-                        ultimaCompra: lastSale,
-                        // Para facilitar exibição na tabela
-                        lastProduto: lastSale.produto,
-                        lastData: lastSale.data,
-                        proximoAviso: lastSale.proximoContato
-                    };
-                });
-
-                // Ordenar por data da última compra (mais recente primeiro)
-                formattedClients.sort((a, b) => new Date(b.ultimaCompra.dataRaw) - new Date(a.ultimaCompra.dataRaw));
-
-                setClients(formattedClients);
-            }
+            const data = await api.fetchClientsWithHistory();
+            setClients(data);
         } catch (error) {
             console.error('Erro ao buscar clientes:', error);
         } finally {
@@ -93,17 +30,15 @@ const ClientsPage = () => {
     };
 
     const handleWhatsApp = (e, client) => {
-        e.stopPropagation(); // Evita abrir o modal de histórico ao clicar no WhatsApp
-        // Garante que é string e limpa o telefone (deixa apenas números)
+        e.stopPropagation();
         const phoneStr = String(client.telefone || '');
         let phone = phoneStr.replace(/\D/g, '');
 
-        // Se não tiver código do país (55), adiciona (assumindo Brasil)
         if (phone.length <= 11) {
             phone = `55${phone}`;
         }
 
-        const message = `Olá ${client.nome}, tudo bem?`;
+        const message = `Olá ${client.nome}, tudo bem? Sentimos sua falta! 🐾`;
         const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
 
         window.open(url, '_blank');
@@ -114,41 +49,176 @@ const ClientsPage = () => {
         setIsHistoryModalOpen(true);
     };
 
-    const filteredClients = clients.filter(client =>
-        client.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(client.telefone).includes(searchTerm)
+    const filteredClients = (clients || []).filter(client =>
+        (client.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(client.telefone || '').includes(searchTerm) ||
+        (client.pet || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const containerVariants = {
+        hidden: { opacity: 1 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.02 }
+        }
+    };
+
+    const rowVariants = {
+        hidden: { opacity: 1, x: 0 },
+        visible: { opacity: 1, x: 0 }
+    };
+
     return (
-        <div className="space-y-6 animate-fade-in text-slate-800">
+        <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="space-y-10"
+        >
             {/* Header */}
-            <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6 pb-2">
+            <motion.div variants={rowVariants} className="flex flex-col lg:flex-row justify-between lg:items-end gap-8">
                 <div>
-                    <h2 className="text-3xl font-black text-slate-800 tracking-tight">Base de Clientes</h2>
-                    <p className="text-slate-500 text-sm font-medium">Controle total sobre sua carteira de fidelidade.</p>
+                    <div className="flex items-center gap-2 text-amber-500 font-black uppercase tracking-[0.2em] text-[10px] mb-2">
+                        <UserIcon size={14} fill="currentColor" />
+                        Base de Dados
+                    </div>
+                    <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Clientes</h2>
+                    <p className="text-slate-500 font-medium italic mt-1">"Gerencie sua carteira de pets e fortaleça a fidelidade."</p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-4">
                     <div className="relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-purple-500 transition-colors" size={18} />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" size={18} />
                         <input
                             type="text"
-                            placeholder="Buscar cliente..."
+                            placeholder="Buscar cliente ou pet..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-[18px] focus:outline-none focus:ring-4 focus:ring-purple-500/10 focus:border-purple-500/50 w-full sm:w-72 transition-all shadow-sm placeholder:text-slate-400 placeholder:font-medium text-sm"
+                            className="pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500/50 w-full sm:w-80 transition-all shadow-sm placeholder:text-slate-400 placeholder:font-black placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px] text-sm font-bold text-slate-700"
                         />
                     </div>
 
                     <button
                         onClick={() => setIsAddModalOpen(true)}
-                        className="flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white px-6 py-3 rounded-[18px] font-bold transition-all shadow-xl shadow-slate-200 active:scale-95 text-sm"
+                        className="flex items-center justify-center gap-3 bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-2xl font-black transition-all shadow-xl shadow-amber-200 active:scale-95 group"
                     >
-                        <Plus size={20} />
+                        <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
                         Novo Cliente
                     </button>
                 </div>
-            </div>
+            </motion.div>
+
+            {/* Clientes Table/Cards List */}
+            <motion.div
+                variants={rowVariants}
+                className="bg-white border border-slate-100 rounded-[40px] shadow-xl shadow-slate-200/40 overflow-hidden"
+            >
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead>
+                            <tr className="border-b border-slate-50 bg-slate-50/30">
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Cliente & Companheiro</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Contato</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Último Item</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Próximo Ciclo</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="5" className="px-8 py-20 text-center">
+                                        <div className="inline-block animate-bounce text-amber-500 mb-2">
+                                            <PawPrint size={32} />
+                                        </div>
+                                        <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Farejando dados...</p>
+                                    </td>
+                                </tr>
+                            ) : filteredClients.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="px-8 py-20 text-center">
+                                        <p className="text-slate-300 font-black text-xl italic tracking-tight">Nenhum cliente farejado 🔍</p>
+                                        <p className="text-slate-400 text-sm mt-2 font-medium">Tente uma busca diferente ou adicione um novo.</p>
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredClients.map((client) => (
+                                    <motion.tr
+                                        key={client.id}
+                                        variants={rowVariants}
+                                        className="hover:bg-amber-50/30 transition-all group cursor-pointer"
+                                        onClick={() => openHistory(client)}
+                                    >
+                                        <td className="px-8 py-7">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-amber-100 group-hover:text-amber-600 transition-colors relative overflow-hidden shadow-inner">
+                                                    <span className="font-black text-sm z-10">{(client.nome || 'P').charAt(0).toUpperCase()}</span>
+                                                    <PawPrint className="absolute -right-2 -bottom-2 opacity-10 group-hover:rotate-12 transition-transform" size={32} fill="currentColor" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-black text-slate-900 tracking-tight group-hover:text-amber-600 transition-colors">{client.nome || 'Sem Nome'}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <Heart size={10} fill="#f43f5e" className="text-rose-500" />
+                                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter capitalize">{client.pet || 'Pet'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-7">
+                                            <div className="inline-flex items-center gap-2 text-slate-600 font-bold text-sm bg-slate-50 px-3 py-1.5 rounded-xl border border-transparent group-hover:border-slate-100 transition-all">
+                                                <Phone size={14} className="text-slate-400" />
+                                                {client.telefone}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-7">
+                                            <div>
+                                                <p className="text-sm text-slate-900 font-black tracking-tight leading-none mb-1">{client.lastProduto}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                        <Calendar size={10} />
+                                                        {client.lastData}
+                                                    </div>
+                                                    {client.history.length > 1 && (
+                                                        <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-black uppercase tracking-tighter">
+                                                            {client.history.length} visitas
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-7">
+                                            <div className={`inline-flex flex-col ${client.proximoAviso === '-' ? 'opacity-30' : ''}`}>
+                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1 leading-none">Previsão</span>
+                                                <span className={`text-sm font-black tracking-tight ${client.proximoAviso === '-' ? 'text-slate-400' : 'text-amber-600'}`}>
+                                                    {client.proximoAviso}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-7 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={(e) => handleWhatsApp(e, client)}
+                                                    className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all rounded-xl shadow-sm"
+                                                    title="Conversar"
+                                                >
+                                                    <MessageCircle size={20} />
+                                                </button>
+                                                <div className="p-2 text-slate-300 group-hover:translate-x-1 group-hover:text-amber-500 transition-all">
+                                                    <ChevronRight size={20} />
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </motion.tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </motion.div>
+
+            <motion.p variants={rowVariants} className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center italic">
+                Dica: Toque no cliente para visualizar o histórico emocional e transacional. 🐾
+            </motion.p>
 
             <AddClientModal
                 isOpen={isAddModalOpen}
@@ -161,97 +231,7 @@ const ClientsPage = () => {
                 onClose={() => setIsHistoryModalOpen(false)}
                 client={selectedClient}
             />
-
-            {/* Tabela de Clientes */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                            <tr>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Cliente</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Contato</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Última Compra</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Próximo Aviso</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">
-                                        Carregando base de clientes...
-                                    </td>
-                                </tr>
-                            ) : filteredClients.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-slate-500">
-                                        Nenhum cliente encontrado.
-                                    </td>
-                                </tr>
-                            ) : (
-                                filteredClients.map((client) => (
-                                    <tr
-                                        key={client.id}
-                                        className="hover:bg-purple-50/30 transition-colors group cursor-pointer"
-                                        onClick={() => openHistory(client)}
-                                    >
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm">
-                                                    {client.nome.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <p className="font-semibold text-slate-800">{client.nome}</p>
-                                                    <p className="text-xs text-slate-500">Pet: {client.pet}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2 text-slate-600 text-sm">
-                                                <Phone size={16} className="text-slate-400" />
-                                                {client.telefone}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div>
-                                                <p className="text-sm text-slate-800 font-medium">{client.lastProduto}</p>
-                                                <p className="text-xs text-slate-500 flex items-center gap-1">
-                                                    <Calendar size={12} />
-                                                    {client.lastData}
-                                                    {client.history.length > 1 && (
-                                                        <span className="ml-2 text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full font-bold">
-                                                            +{client.history.length - 1} compras
-                                                        </span>
-                                                    )}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${client.proximoAviso === '-' ? 'bg-slate-50 text-slate-400' : 'bg-blue-50 text-blue-700'
-                                                }`}>
-                                                {client.proximoAviso}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <button
-                                                onClick={(e) => handleWhatsApp(e, client)}
-                                                className="text-slate-400 hover:text-green-600 transition-colors p-2 rounded-full hover:bg-green-50"
-                                                title="Enviar WhatsApp"
-                                            >
-                                                <MessageCircle size={20} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <p className="text-xs text-slate-400 mt-4 italic text-center">
-                Dica: Clique em qualquer linha para ver o histórico completo de compras do cliente.
-            </p>
-        </div>
+        </motion.div>
     );
 };
 

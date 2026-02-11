@@ -6,11 +6,14 @@ import DashboardHome from './pages/DashboardHome';
 import ClientsPage from './pages/ClientsPage';
 import ProductsPage from './pages/ProductsPage';
 import ScheduleMessagePage from './pages/ScheduleMessagePage';
+import SettingsPage from './pages/SettingsPage';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Component to protect routes
 const ProtectedRoute = ({ children }) => {
-  const isAuth = localStorage.getItem('petcontrol_auth');
-  if (!isAuth) {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -18,24 +21,27 @@ const ProtectedRoute = ({ children }) => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
-        <Route path="/" element={
-          <ProtectedRoute>
-            <MainLayout />
-          </ProtectedRoute>
-        }>
-          <Route index element={<DashboardHome />} />
-          <Route path="clientes" element={<ClientsPage />} />
-          <Route path="produtos" element={<ProductsPage />} />
-          <Route path="agendar-mensagem" element={<ScheduleMessagePage />} />
-        </Route>
+          <Route path="/" element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<DashboardHome />} />
+            <Route path="clientes" element={<ClientsPage />} />
+            <Route path="produtos" element={<ProductsPage />} />
+            <Route path="agendar-mensagem" element={<ScheduleMessagePage />} />
+            <Route path="configuracoes" element={<SettingsPage />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
