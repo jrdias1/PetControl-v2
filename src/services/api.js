@@ -314,27 +314,48 @@ export const api = {
     },
 
     async triggerN8nWebhook(messageData) {
-        const settings = await this.fetchAppSettings();
-        const webhookUrl = settings?.webhook_url;
-
-        if (!webhookUrl) {
-            console.warn('Webhook URL não configurada no Supabase.');
-            return false;
-        }
-
         try {
+            const settings = await this.fetchAppSettings();
+            const webhookUrl = settings?.webhook_url;
+
+            console.log('🔍 DEBUG n8n: Iniciando webhook trigger');
+            console.log('🔍 Settings carregadas:', { shop_name: settings?.shop_name, has_webhook: !!webhookUrl });
+
+            if (!webhookUrl) {
+                console.warn('⚠️ Webhook URL não configurada no Supabase.');
+                alert('⚠️ Webhook URL não foi configurada.\n\nVá para /configuracoes e adicione a URL do n8n.');
+                return false;
+            }
+
+            const payload = {
+                ...messageData,
+                shop_name: settings.shop_name,
+                timestamp: new Date().toISOString()
+            };
+
+            console.log('📤 Enviando payload:', payload);
+            console.log('🌐 Para URL:', webhookUrl);
+
             const response = await fetch(webhookUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...messageData,
-                    shop_name: settings.shop_name,
-                    timestamp: new Date().toISOString()
-                })
+                body: JSON.stringify(payload)
             });
-            return response.ok;
+
+            console.log('📨 Response status:', response.status, response.statusText);
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Erro na resposta:', errorText);
+                alert(`❌ Erro ao disparar webhook (${response.status}):\n${errorText}`);
+                return false;
+            }
+
+            console.log('✅ Webhook disparado com sucesso!');
+            return true;
         } catch (error) {
-            console.error('Erro ao disparar webhook n8n:', error);
+            console.error('❌ Erro ao disparar webhook n8n:', error);
+            alert(`❌ Erro de rede/CORS:\n${error.message}`);
             return false;
         }
     },
