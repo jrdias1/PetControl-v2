@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, PawPrint, Sparkles, ShieldCheck, Heart, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,18 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+
+    // Add noindex meta tag to prevent indexing of login page
+    useEffect(() => {
+        const metaRobots = document.createElement('meta');
+        metaRobots.name = 'robots';
+        metaRobots.content = 'noindex, nofollow';
+        document.head.appendChild(metaRobots);
+
+        return () => {
+            document.head.removeChild(metaRobots);
+        };
+    }, []);
 
     const handleLogin = async (e) => {
         e.preventDefault();
