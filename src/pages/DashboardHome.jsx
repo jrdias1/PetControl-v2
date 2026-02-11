@@ -208,12 +208,12 @@ const DashboardHome = () => {
             {/* Boas-vindas e Ações Rápidas */}
             <motion.div variants={cardVariants} className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
                 <div className="flex-1">
-                    <div className="flex items-center gap-3 text-amber-500 font-black uppercase tracking-[0.3em] text-[10pxshopName
+                    <div className="flex items-center gap-3 text-amber-500 font-black uppercase tracking-[0.3em] text-[10px] mb-3">
                         <Zap size={14} fill="currentColor" />
                         Visão Geral de Hoje
                     </div>
                     <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tighter">
-                        Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">{api.getCurrentUserName() || 'Veterinário'}</span> 👋
+                        Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">{shopName}</span> 👋
                     </h1>
 
                     {/* Dica Diária Dinâmica */}
