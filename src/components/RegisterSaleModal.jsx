@@ -81,6 +81,8 @@ const RegisterSaleModal = ({ isOpen, onClose, onSuccess, client: initialClient }
 
             if (success) {
                 onSuccess();
+                setFormData({ produto: '', data: new Date().toISOString().split('T')[0] });
+                setSearchTerm('');
                 onClose();
             }
         } catch (error) {

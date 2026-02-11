@@ -47,6 +47,14 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
 
             if (success) {
                 onSuccess(formData);
+                setFormData({
+                    nome: '',
+                    telefone: '',
+                    pet: '',
+                    produto: '',
+                    data: new Date().toISOString().split('T')[0]
+                });
+                setSearchTerm('');
                 onClose();
             }
         } catch (error) {
