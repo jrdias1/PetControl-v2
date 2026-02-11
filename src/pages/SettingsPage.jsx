@@ -153,7 +153,7 @@ const SettingsPage = () => {
                     </div>
 
                     {/* API & Webhooks */}
-                    <div className="bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
+                    <div className="hidden bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
                         <div className="p-8 border-b border-slate-50 bg-slate-50/30 font-black text-slate-900 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <Zap size={20} className="text-amber-500" fill="currentColor" />
