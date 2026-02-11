@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { api } from '../services/api';
 
 const Sidebar = ({ isOpen, toggleSidebar, settings }) => {
     const location = useLocation();

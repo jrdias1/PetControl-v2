@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Users,
     MessageSquare,
@@ -38,83 +38,86 @@ const DashboardHome = () => {
     const [topFieis, setTopFieis] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dailyTip, setDailyTip] = useState(null);
+    const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+    const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+    const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+
+    const loadDashboardData = useCallback(async () => {
+        try {
+            const [clients, agenda, sales, status] = await Promise.all([
+                api.fetchClients(),
+                api.fetchAgenda(),
+                api.fetchSales(),
+                api.getAutomationStatus()
+            ]);
+
+            setAutoStatus(status);
+
+            // 1. Base Monitorada: Total de clientes
+            const baseMonitorada = clients.length;
+
+            // 2. Mensagens Enviadas: Itens na agenda com data passada ou hoje
+            const hoje = new Date();
+            hoje.setHours(0, 0, 0, 0);
+            const mensagensEnviadas = agenda.filter(item => new Date(item.scheduled_date) <= hoje).length;
+
+            // 3. Em Risco: Clientes que não compram há mais de 60 dias (exemplo)
+            const sessentaDiasAtras = new Date();
+            sessentaDiasAtras.setDate(sessentaDiasAtras.getDate() - 60);
+
+            // Pegar última venda de cada cliente
+            const ultimasVendas = {};
+            sales.forEach(sale => {
+                if (!ultimasVendas[sale.client_id] || new Date(sale.sale_date) > new Date(ultimasVendas[sale.client_id])) {
+                    ultimasVendas[sale.client_id] = sale.sale_date;
+                }
+            });
+
+            const emRisco = Object.values(ultimasVendas).filter(data => new Date(data) < sessentaDiasAtras).length;
+
+            // 4. Taxa de Retorno: (Clientes com > 1 venda / Total Clientes) * 100
+            const comprasPorCliente = {};
+            sales.forEach(sale => {
+                comprasPorCliente[sale.client_id] = (comprasPorCliente[sale.client_id] || 0) + 1;
+            });
+            const clientesFieis = Object.values(comprasPorCliente).filter(count => count > 1).length;
+            const taxaRetorno = baseMonitorada > 0 ? Math.round((clientesFieis / baseMonitorada) * 100) : 0;
+
+            const currentStats = {
+                mensagensEnviadas,
+                taxaRetorno,
+                baseMonitorada,
+                emRisco
+            };
+
+            setStats(currentStats);
+            setDailyTip(getSmartTip(currentStats));
+
+            // Top Fiéis
+            const fieisData = Object.entries(comprasPorCliente)
+                .map(([id, count]) => {
+                    const cliente = clients.find(c => c.id === id);
+                    return {
+                        id,
+                        name: cliente?.full_name || 'Cliente',
+                        pet: cliente?.pet_name || 'Pet',
+                        buys: count
+                    };
+                })
+                .sort((a, b) => b.buys - a.buys)
+                .slice(0, 5);
+
+            setTopFieis(fieisData);
+        } catch (error) {
+            console.error("Erro ao carregar dashboard:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const loadDashboardData = async () => {
-            try {
-                const [clients, agenda, sales, status] = await Promise.all([
-                    api.fetchClients(),
-                    api.fetchAgenda(),
-                    api.fetchSales(),
-                    api.getAutomationStatus()
-                ]);
-
-                setAutoStatus(status);
-
-                // 1. Base Monitorada: Total de clientes
-                const baseMonitorada = clients.length;
-
-                // 2. Mensagens Enviadas: Itens na agenda com data passada ou hoje
-                const hoje = new Date();
-                hoje.setHours(0, 0, 0, 0);
-                const mensagensEnviadas = agenda.filter(item => new Date(item.scheduled_date) <= hoje).length;
-
-                // 3. Em Risco: Clientes que não compram há mais de 60 dias (exemplo)
-                const sessentaDiasAtras = new Date();
-                sessentaDiasAtras.setDate(sessentaDiasAtras.getDate() - 60);
-
-                // Pegar última venda de cada cliente
-                const ultimasVendas = {};
-                sales.forEach(sale => {
-                    if (!ultimasVendas[sale.client_id] || new Date(sale.sale_date) > new Date(ultimasVendas[sale.client_id])) {
-                        ultimasVendas[sale.client_id] = sale.sale_date;
-                    }
-                });
-
-                const emRisco = Object.values(ultimasVendas).filter(data => new Date(data) < sessentaDiasAtras).length;
-
-                // 4. Taxa de Retorno: (Clientes com > 1 venda / Total Clientes) * 100
-                const comprasPorCliente = {};
-                sales.forEach(sale => {
-                    comprasPorCliente[sale.client_id] = (comprasPorCliente[sale.client_id] || 0) + 1;
-                });
-                const clientesFieis = Object.values(comprasPorCliente).filter(count => count > 1).length;
-                const taxaRetorno = baseMonitorada > 0 ? Math.round((clientesFieis / baseMonitorada) * 100) : 0;
-
-                const currentStats = {
-                    mensagensEnviadas,
-                    taxaRetorno,
-                    baseMonitorada,
-                    emRisco
-                };
-
-                setStats(currentStats);
-                setDailyTip(getSmartTip(currentStats));
-
-                // Top Fiéis
-                const fieisData = Object.entries(comprasPorCliente)
-                    .map(([id, count]) => {
-                        const cliente = clients.find(c => c.id === id);
-                        return {
-                            id,
-                            name: cliente?.full_name || 'Cliente',
-                            pet: cliente?.pet_name || 'Pet',
-                            buys: count
-                        };
-                    })
-                    .sort((a, b) => b.buys - a.buys)
-                    .slice(0, 5);
-
-                setTopFieis(fieisData);
-            } catch (error) {
-                console.error("Erro ao carregar dashboard:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         loadDashboardData();
-    }, []);
+    }, [loadDashboardData]);
 
     const containerVariants = {
         hidden: { opacity: 1 },
