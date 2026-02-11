@@ -178,13 +178,26 @@ const Login = () => {
                         </div>
                         <div className="flex items-center gap-3 text-slate-500 text-sm font-bold">
                             <span className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Heart size={16} /></span>
-                            Suporte exclusivo via WhatsApp: (11) 92294-2690
+                            Suporte exclusivo via WhatsApp: (24) 98137-5213
                         </div>
                     </motion.div>
                 </motion.div>
 
-                <div className="mt-auto pt-8 text-slate-400 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
-                    <ShieldCheck size={14} /> Ambiente Seguro & Criptografado
+                <div className="mt-auto pt-8 space-y-3">
+                    <div className="text-slate-400 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
+                        <ShieldCheck size={14} /> Ambiente Seguro & Criptografado
+                    </div>
+                    <div className="text-slate-500 text-xs font-medium italic">
+                        Desenvolvido por{' '}
+                        <a 
+                            href="https://www.instagram.com/essencial_comunicacao/" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-amber-600 hover:text-amber-700 font-bold underline transition-colors"
+                        >
+                            Essencial Comunicação
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

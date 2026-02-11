@@ -235,15 +235,21 @@ export const api = {
     },
 
     async fetchAppSettings() {
-        const { data, error } = await supabase
-            .from('app_settings')
-            .select('*')
-            .maybeSingle();
-        if (error) throw error;
+        try {
+            const { data, error } = await supabase
+                .from('app_settings')
+                .select('*')
+                .maybeSingle();
 
-        // Se não existir, as configurações padrão do banco serão criadas pelo script SQL
-        // mas retornamos um fallback se o banco estiver vazio no momento
-        return data || { shop_name: 'PetControl', logo_url: '', automation_hour: '08:00:00' };
+            if (error) throw error;
+
+            // Se não existir, as configurações padrão do banco serão criadas pelo script SQL
+            // mas retornamos um fallback se o banco estiver vazio no momento
+            return data || { shop_name: 'PetControl', logo_url: '', automation_hour: '08:00:00' };
+        } catch (error) {
+            console.error('Erro ao buscar app_settings:', error);
+            return { shop_name: 'PetControl', logo_url: '', automation_hour: '08:00:00' };
+        }
     },
 
     async updateAppSettings(settings) {
@@ -293,7 +299,10 @@ export const api = {
 
         if (errorLog) {
             updateData.error_log = errorLog;
-            updateData.attempts = supabase.rpc('increment_attempts', { row_id: id }); // Opcional: incrementar tentativas
+            const { error: attemptsError } = await supabase.rpc('increment_attempts', { row_id: id });
+            if (attemptsError) {
+                console.warn('Falha ao incrementar tentativas:', attemptsError);
+            }
         }
 
         const { error } = await supabase
