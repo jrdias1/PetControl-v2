@@ -173,6 +173,7 @@ const MainLayout = () => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [appSettings, setAppSettings] = useState({ shop_name: 'PetControl', logo_url: '' });
     const { user } = useAuth();
+    const navigate = useNavigate();
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     React.useEffect(() => {
@@ -224,7 +225,12 @@ const MainLayout = () => {
                             <Bell size={20} />
                             <span className="absolute top-3 right-3 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
                         </button>
-                        <button className="p-3 bg-white text-slate-400 rounded-xl border border-slate-200 hover:text-slate-900 transition-all">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/configuracoes')}
+                            className="p-3 bg-white text-slate-400 rounded-xl border border-slate-200 hover:text-slate-900 transition-all"
+                            aria-label="Abrir configurações"
+                        >
                             <Settings size={20} />
                         </button>
 

@@ -173,10 +173,6 @@ const Login = () => {
 
                     <motion.div variants={itemVariants} className="mt-12 pt-8 border-t border-slate-200/50 flex flex-col gap-4">
                         <div className="flex items-center gap-3 text-slate-500 text-sm font-bold">
-                            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><Sparkles size={16} /></span>
-                            Dica: Use 'admin123' para o acesso de teste.
-                        </div>
-                        <div className="flex items-center gap-3 text-slate-500 text-sm font-bold">
                             <span className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Heart size={16} /></span>
                             Suporte exclusivo via WhatsApp: (24) 98137-5213
                         </div>

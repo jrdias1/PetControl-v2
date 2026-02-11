@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Upload, Trash2, Store, Globe, Type, PawPrint, Zap, Eye, EyeOff } from 'lucide-react';
+import { Settings, Save, Upload, Trash2, Store, Globe, Type, PawPrint, Zap } from 'lucide-react';
 import { api } from '../services/api';
 import { motion } from 'framer-motion';
 
@@ -11,7 +11,6 @@ const SettingsPage = () => {
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [showWebhook, setShowWebhook] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -152,44 +151,6 @@ const SettingsPage = () => {
                         </div>
                     </div>
 
-                    {/* API & Webhooks */}
-                    <div className="hidden bg-white rounded-[40px] border border-slate-100 shadow-xl shadow-slate-200/40 overflow-hidden">
-                        <div className="p-8 border-b border-slate-50 bg-slate-50/30 font-black text-slate-900 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Zap size={20} className="text-amber-500" fill="currentColor" />
-                                Automação & n8n
-                            </div>
-                            <span className="text-[10px] bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full uppercase tracking-tighter">Premium</span>
-                        </div>
-
-                        <div className="p-10 space-y-6">
-                            <div className="space-y-3">
-                                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                                    Webhook URL (n8n / WhatsApp)
-                                </label>
-                                <div className="relative group">
-                                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-amber-500 transition-colors" size={16} />
-                                    <input{showWebhook ? "text" : "password"}
-                                        value={settings.webhook_url}
-                                        onChange={(e) => setSettings({ ...settings, webhook_url: e.target.value })}
-                                        className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-amber-500/10 focus:border-amber-500/50 transition-all font-mono text-xs text-slate-600"
-                                        placeholder="https://sua-instancia.n8n.cloud/webhook/..."
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowWebhook(!showWebhook)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
-                                    >
-                                        {showWebhook ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button   placeholder="https://sua-instancia.n8n.cloud/webhook/..."
-                                    />
-                                </div>
-                                <p className="text-[10px] font-medium text-slate-400 italic">
-                                    Esta URL será chamada automaticamente sempre que uma mensagem precisar ser disparada via WhatsApp.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
                 </motion.div>
 
                 {/* Info Card */}
