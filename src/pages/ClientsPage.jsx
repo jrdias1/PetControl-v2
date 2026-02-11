@@ -41,9 +41,18 @@ const ClientsPage = () => {
             phone = `55${phone}`;
         }
 
-        const message = `Olá ${client.nome}, tudo bem? Sentimos sua falta! 🐾`;
-        const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+        // Mensagem inteligente com próximo produto
+        let message = `Olá ${client.nome}! 👋`;
+        
+        if (client.lastProduto && client.proximoAviso !== '-') {
+            message += `\n\n🐾 Sua ${client.lastProduto} está vencendo em ${client.proximoAviso}.\n💼 Agende sua recompra agora mesmo!`;
+        } else if (client.lastProduto) {
+            message += `\n\n🐾 Que tal uma recompra de ${client.lastProduto}?\n💼 Estamos com ótimas opções para ${client.pet}!`;
+        } else {
+            message += `\n\nSentimos sua falta! 🐾\n💼 Confira nossas novidades!`;
+        }
 
+        const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
         window.open(url, '_blank');
     };
 
