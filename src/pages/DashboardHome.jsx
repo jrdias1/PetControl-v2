@@ -38,18 +38,24 @@ const DashboardHome = () => {
     const [topFieis, setTopFieis] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dailyTip, setDailyTip] = useState(null);
+    const [shopName, setShopName] = useState('PetControl');
     const [isAddClientOpen, setIsAddClientOpen] = useState(false);
     const [isAddProductOpen, setIsAddProductOpen] = useState(false);
     const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
 
     const loadDashboardData = useCallback(async () => {
         try {
-            const [clients, agenda, sales, status] = await Promise.all([
+            const [clients, agenda, sales, status, settings] = await Promise.all([
                 api.fetchClients(),
                 api.fetchAgenda(),
                 api.fetchSales(),
-                api.getAutomationStatus()
+                api.getAutomationStatus(),
+                api.fetchAppSettings()
             ]);
+
+            if (settings?.shop_name) {
+                setShopName(settings.shop_name);
+            }
 
             setAutoStatus(status);
 
@@ -202,7 +208,7 @@ const DashboardHome = () => {
             {/* Boas-vindas e Ações Rápidas */}
             <motion.div variants={cardVariants} className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
                 <div className="flex-1">
-                    <div className="flex items-center gap-3 text-amber-500 font-black uppercase tracking-[0.3em] text-[10px] mb-3">
+                    <div className="flex items-center gap-3 text-amber-500 font-black uppercase tracking-[0.3em] text-[10pxshopName
                         <Zap size={14} fill="currentColor" />
                         Visão Geral de Hoje
                     </div>
