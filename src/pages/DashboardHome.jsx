@@ -26,6 +26,43 @@ import AddClientModal from '../components/AddClientModal';
 import AddProductModal from '../components/AddProductModal';
 import RegisterSaleModal from '../components/RegisterSaleModal';
 
+// Helper para classes do Tailwind (não suporta interpolação dinâmica)
+const getTipClasses = (color) => {
+    const colorMap = {
+        blue: {
+            container: 'bg-blue-50 border-blue-100',
+            icon: 'text-blue-500',
+            label: 'text-blue-600',
+            text: 'text-blue-800'
+        },
+        amber: {
+            container: 'bg-amber-50 border-amber-100',
+            icon: 'text-amber-500',
+            label: 'text-amber-600',
+            text: 'text-amber-800'
+        },
+        green: {
+            container: 'bg-green-50 border-green-100',
+            icon: 'text-green-500',
+            label: 'text-green-600',
+            text: 'text-green-800'
+        },
+        purple: {
+            container: 'bg-purple-50 border-purple-100',
+            icon: 'text-purple-500',
+            label: 'text-purple-600',
+            text: 'text-purple-800'
+        },
+        rose: {
+            container: 'bg-rose-50 border-rose-100',
+            icon: 'text-rose-500',
+            label: 'text-rose-600',
+            text: 'text-rose-800'
+        }
+    };
+    return colorMap[color] || colorMap.amber;
+};
+
 const DashboardHome = () => {
     const navigate = useNavigate();
     const [stats, setStats] = useState({
@@ -222,16 +259,16 @@ const DashboardHome = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className={`mt-4 p-4 rounded-2xl border flex items-start gap-4 max-w-xl bg-${dailyTip.color}-50 border-${dailyTip.color}-100`}
+                            className={`mt-4 p-4 rounded-2xl border flex items-start gap-4 max-w-xl ${getTipClasses(dailyTip.color).container}`}
                         >
-                            <div className={`p-2 bg-white rounded-lg text-${dailyTip.color}-500 shadow-sm`}>
+                            <div className={`p-2 bg-white rounded-lg shadow-sm ${getTipClasses(dailyTip.color).icon}`}>
                                 <Sparkles size={18} fill="currentColor" className="animate-pulse" />
                             </div>
                             <div>
-                                <span className={`text-[10px] font-black uppercase tracking-wider text-${dailyTip.color}-600 mb-1 block`}>
+                                <span className={`text-[10px] font-black uppercase tracking-wider mb-1 block ${getTipClasses(dailyTip.color).label}`}>
                                     Dica de Retenção
                                 </span>
-                                <p className={`text-sm font-bold text-${dailyTip.color}-800 leading-snug`}>
+                                <p className={`text-sm font-bold leading-snug ${getTipClasses(dailyTip.color).text}`}>
                                     "{dailyTip.text}"
                                 </p>
                             </div>
