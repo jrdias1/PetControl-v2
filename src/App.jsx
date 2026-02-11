@@ -8,6 +8,8 @@ import ProductsPage from './pages/ProductsPage';
 import ScheduleMessagePage from './pages/ScheduleMessagePage';
 import SettingsPage from './pages/SettingsPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
+import OfflineIndicator from './components/OfflineIndicator';
 
 // Component to protect routes
 const ProtectedRoute = ({ children }) => {
@@ -23,6 +25,10 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        {/* PWA Components */}
+        <PWAInstallPrompt />
+        <OfflineIndicator />
+        
         <Routes>
           <Route path="/login" element={<Login />} />
 
