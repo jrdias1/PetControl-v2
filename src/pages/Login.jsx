@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, PawPrint, ArrowRight, Loader2, Sparkles } from 'lucide-react';
+import { Lock, PawPrint, ArrowRight, Loader2, Sparkles, ShieldCheck, Heart, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Login = () => {
     const [password, setPassword] = useState('');
@@ -24,7 +24,7 @@ const Login = () => {
                 navigate('/');
             } else {
                 setError(true);
-                setIsLoading(false);
+                setLoading(false);
             }
         }, 800);
     };
@@ -123,7 +123,7 @@ const Login = () => {
                         <p className="text-slate-500 font-medium mb-10 text-lg italic">"Acesse seu painel administrativo para cuidar dos seus clientes."</p>
                     </motion.div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleLogin} className="space-y-6">
                         <motion.div variants={itemVariants} className="space-y-2">
                             <label className="text-sm font-bold text-slate-700 ml-1 uppercase tracking-wider">Sua Chave de Acesso</label>
                             <div className="relative group">
@@ -158,10 +158,10 @@ const Login = () => {
                             whileHover={{ scale: 1.02, y: -2 }}
                             whileTap={{ scale: 0.98 }}
                             type="submit"
-                            disabled={isLoading}
+                            disabled={loading}
                             className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black text-lg transition-all shadow-xl shadow-slate-200 hover:bg-black flex items-center justify-center gap-3 active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed group"
                         >
-                            {isLoading ? (
+                            {loading ? (
                                 <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" />
                             ) : (
                                 <>
