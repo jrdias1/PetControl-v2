@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Package, User, Phone, ShoppingBag, Heart } from 'lucide-react';
+import { X, Calendar, Package, Phone, ShoppingBag, Heart } from 'lucide-react';
 
 const ClientHistoryModal = ({ isOpen, onClose, client }) => {
     if (!isOpen || !client) return null;

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Phone, Calendar, MessageCircle, PawPrint, Heart, ChevronRight, User as UserIcon } from 'lucide-react';
+import { Search, Plus, Phone, Calendar, MessageCircle, PawPrint, Heart, ChevronRight, User as UserIcon, ShoppingBag } from 'lucide-react';
 import AddClientModal from '../components/AddClientModal';
 import ClientHistoryModal from '../components/ClientHistoryModal';
+import RegisterSaleModal from '../components/RegisterSaleModal';
 import { api } from '../services/api';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 const ClientsPage = () => {
     const [clients, setClients] = useState([]);
@@ -12,6 +13,8 @@ const ClientsPage = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState(null);
     const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+    const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+    const [clientForSale, setClientForSale] = useState(null);
 
     useEffect(() => {
         fetchClients();
@@ -47,6 +50,12 @@ const ClientsPage = () => {
     const openHistory = (client) => {
         setSelectedClient(client);
         setIsHistoryModalOpen(true);
+    };
+
+    const openSaleModal = (e, client) => {
+        e.stopPropagation();
+        setClientForSale(client);
+        setIsSaleModalOpen(true);
     };
 
     const filteredClients = (clients || []).filter(client =>
@@ -197,6 +206,13 @@ const ClientsPage = () => {
                                         <td className="px-8 py-7 text-right">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
+                                                    onClick={(e) => openSaleModal(e, client)}
+                                                    className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-amber-500 hover:border-amber-200 hover:bg-amber-50 transition-all rounded-xl shadow-sm"
+                                                    title="Nova Venda"
+                                                >
+                                                    <ShoppingBag size={20} />
+                                                </button>
+                                                <button
                                                     onClick={(e) => handleWhatsApp(e, client)}
                                                     className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-200 hover:bg-emerald-50 transition-all rounded-xl shadow-sm"
                                                     title="Conversar"
@@ -230,6 +246,13 @@ const ClientsPage = () => {
                 isOpen={isHistoryModalOpen}
                 onClose={() => setIsHistoryModalOpen(false)}
                 client={selectedClient}
+            />
+
+            <RegisterSaleModal
+                isOpen={isSaleModalOpen}
+                onClose={() => setIsSaleModalOpen(false)}
+                onSuccess={fetchClients}
+                client={clientForSale}
             />
         </motion.div>
     );

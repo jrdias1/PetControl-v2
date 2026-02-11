@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, PawPrint, ArrowRight, Loader2, Sparkles, ShieldCheck, Heart, ChevronRight } from 'lucide-react';
+import { Lock, PawPrint, Sparkles, ShieldCheck, Heart, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Login = () => {

@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Phone, Package, Calendar, Loader2, Heart, PawPrint } from 'lucide-react';
+import { X, User, Package, Calendar, Loader2, PawPrint } from 'lucide-react';
 import { api } from '../services/api';
 
-const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
+const RegisterSaleModal = ({ isOpen, onClose, onSuccess, client }) => {
     const [loading, setLoading] = useState(false);
     const [products, setProducts] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [showProductList, setShowProductList] = useState(false);
     const [formData, setFormData] = useState({
-        nome: '',
-        telefone: '',
-        pet: '',
         produto: '',
         data: new Date().toISOString().split('T')[0]
     });
@@ -18,6 +15,8 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
     useEffect(() => {
         if (isOpen) {
             fetchProducts();
+            setFormData(prev => ({ ...prev, produto: '' }));
+            setSearchTerm('');
         }
     }, [isOpen]);
 
@@ -30,7 +29,7 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen || !client) return null;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -43,14 +42,22 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
         setLoading(true);
 
         try {
-            const success = await api.addClient(formData);
+            const success = await api.registerSale({
+                clientId: client.id,
+                produto: formData.produto,
+                data: formData.data,
+                // Passamos dados redundantes caso a API precise (embora o ID já resolva)
+                nome: client.nome,
+                telefone: client.telefone,
+                pet: client.pet
+            });
 
             if (success) {
-                onSuccess(formData);
+                onSuccess();
                 onClose();
             }
         } catch (error) {
-            console.error('Erro:', error);
+            alert('Erro ao registrar venda: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -63,15 +70,12 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
             <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300 border border-slate-100 relative group">
-                {/* Decoration */}
-                <div className="absolute -right-10 -top-10 w-32 h-32 bg-amber-50 rounded-full opacity-50 pointer-events-none" />
-
                 <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-amber-50/30 relative z-10">
                     <h3 className="text-xl font-black text-slate-900 flex items-center gap-3">
                         <div className="w-10 h-10 bg-white text-amber-500 rounded-xl flex items-center justify-center shadow-sm">
-                            <User size={22} fill="currentColor" className="opacity-70" />
+                            <Package size={22} fill="currentColor" className="opacity-70" />
                         </div>
-                        Novo Cliente
+                        Nova Venda
                     </h3>
                     <button onClick={onClose} className="p-2 hover:bg-white hover:shadow-sm rounded-xl transition-all">
                         <X size={20} className="text-slate-400" />
@@ -79,49 +83,14 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-6 relative z-10">
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 leading-none">Identificação</label>
-                        <div className="relative">
-                            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500" size={18} />
-                            <input
-                                required
-                                type="text"
-                                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 focus:ring-4 focus:ring-amber-500/5 outline-none transition-all font-bold text-slate-700"
-                                placeholder="Nome Completo"
-                                value={formData.nome}
-                                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                            />
+                    <div className="p-4 bg-slate-50 rounded-2xl flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-slate-400 font-black shadow-sm">
+                            {client.nome.charAt(0).toUpperCase()}
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 leading-none">WhatsApp</label>
-                            <div className="relative">
-                                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                                <input
-                                    required
-                                    type="text"
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 outline-none transition-all font-bold text-slate-700"
-                                    placeholder="51999999999"
-                                    value={formData.telefone}
-                                    onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 leading-none">Companheiro (Pet)</label>
-                            <div className="relative">
-                                <Heart className="absolute left-4 top-1/2 -translate-y-1/2 text-rose-300" size={18} fill="currentColor" />
-                                <input
-                                    required
-                                    type="text"
-                                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-transparent rounded-2xl focus:bg-white focus:border-amber-200 outline-none transition-all font-bold text-slate-700"
-                                    placeholder="Nome do Pet"
-                                    value={formData.pet}
-                                    onChange={(e) => setFormData({ ...formData, pet: e.target.value })}
-                                />
-                            </div>
+                        <div>
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Cliente</p>
+                            <p className="font-bold text-slate-900 text-lg leading-tight">{client.nome}</p>
+                            <p className="text-xs text-amber-600 font-bold flex items-center gap-1 mt-0.5"><PawPrint size={10} /> {client.pet}</p>
                         </div>
                     </div>
 
@@ -201,7 +170,7 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
                             onClick={onClose}
                             className="flex-1 py-4 text-slate-400 font-black uppercase tracking-widest text-xs hover:text-slate-900 transition-colors"
                         >
-                            Voltar
+                            Cancelar
                         </button>
                         <button
                             type="submit"
@@ -210,8 +179,8 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
                         >
                             {loading ? <Loader2 className="animate-spin text-white" size={20} /> : (
                                 <>
-                                    <span>Salvar Cliente</span>
-                                    <PawPrint size={18} className="group-hover:rotate-12 transition-transform" fill="currentColor" />
+                                    <span>Registrar Venda</span>
+                                    <Package size={18} className="group-hover:-translate-y-1 transition-transform" />
                                 </>
                             )}
                         </button>
@@ -222,4 +191,4 @@ const AddClientModal = ({ isOpen, onClose, onSuccess }) => {
     );
 };
 
-export default AddClientModal;
+export default RegisterSaleModal;
