@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, PawPrint, ArrowRight, Loader2 } from 'lucide-react';
+import { Lock, PawPrint, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { motion } from 'framer-motion';
