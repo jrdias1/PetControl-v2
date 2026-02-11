@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Ícones PWA - PetControl</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f8fafc;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #f59e0b;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #d97706;
+        }
+        .preview {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .preview-item {
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .success {
+            background: #10b981;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🐾 Gerador de Ícones PWA</h1>
+        <p>Clique no botão abaixo para gerar todos os ícones necessários para o PWA do PetControl.</p>
+        
+        <div class="info">
+            <strong>📝 Instruções:</strong><br>
+            1. Clique em "Gerar Todos os Ícones"<br>
+            2. Os downloads começarão automaticamente<br>
+            3. Salve todos os arquivos na pasta <code>public/icons/</code><br>
+            4. Recarregue o site
+        </div>
+
+        <button onclick="generateAllIcons()">🎨 Gerar Todos os Ícones</button>
+        
+        <div class="preview" id="preview"></div>
+        <div class="success" id="success">✅ Todos os ícones foram gerados e baixados com sucesso!</div>
+    </div>
+
+    <script>
+        function drawIcon(size, maskable = false) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#f59e0b'); // amber-500
+            gradient.addColorStop(1, '#d97706'); // amber-600
+            ctx.fillStyle = gradient;
+            
+            if (maskable) {
+                // Para maskable, usar círculo ou padding maior
+                ctx.fillRect(0, 0, size, size);
+            } else {
+                // Ícone normal com cantos arredondados
+                const radius = size * 0.15;
+                ctx.beginPath();
+                ctx.moveTo(radius, 0);
+                ctx.lineTo(size - radius, 0);
+                ctx.quadraticCurveTo(size, 0, size, radius);
+                ctx.lineTo(size, size - radius);
+                ctx.quadraticCurveTo(size, size, size - radius, size);
+                ctx.lineTo(radius, size);
+                ctx.quadraticCurveTo(0, size, 0, size - radius);
+                ctx.lineTo(0, radius);
+                ctx.quadraticCurveTo(0, 0, radius, 0);
+                ctx.fill();
+            }
+
+            // Desenhar pata (emoji simplificado)
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.5}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🐾', size / 2, size / 2);
+
+            return canvas;
+        }
+
+        function downloadCanvas(canvas, filename) {
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.click();
+                    setTimeout(() => {
+                        URL.revokeObjectURL(url);
+                        resolve();
+                    }, 100);
+                });
+            });
+        }
+
+        async function generateAllIcons() {
+            const preview = document.getElementById('preview');
+            preview.innerHTML = '';
+
+            const icons = [
+                { size: 192, name: 'icon-192.png', maskable: false },
+                { size: 192, name: 'icon-192-maskable.png', maskable: true },
+                { size: 384, name: 'icon-384.png', maskable: false },
+                { size: 384, name: 'icon-384-maskable.png', maskable: true },
+                { size: 512, name: 'icon-512.png', maskable: false },
+                { size: 512, name: 'icon-512-maskable.png', maskable: true },
+            ];
+
+            for (const icon of icons) {
+                const canvas = drawIcon(icon.size, icon.maskable);
+                
+                // Preview
+                const previewItem = document.createElement('div');
+                previewItem.className = 'preview-item';
+                const previewCanvas = drawIcon(Math.min(icon.size, 128), icon.maskable);
+                previewCanvas.style.width = '64px';
+                previewCanvas.style.height = '64px';
+                previewItem.appendChild(previewCanvas);
+                const label = document.createElement('div');
+                label.textContent = icon.name;
+                label.style.fontSize = '11px';
+                label.style.marginTop = '8px';
+                label.style.color = '#64748b';
+                previewItem.appendChild(label);
+                preview.appendChild(previewItem);
+
+                // Download
+                await downloadCanvas(canvas, icon.name);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Delay entre downloads
+            }
+
+            document.getElementById('success').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
