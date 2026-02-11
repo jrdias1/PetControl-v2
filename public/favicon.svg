@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="98" fill="#f59e0b" opacity="0.95"/>
+  <circle cx="100" cy="100" r="90" fill="#fbbf24"/>
+  
+  <!-- Main pad (center bottom) -->
+  <circle cx="100" cy="130" r="28" fill="#ffffff"/>
+  
+  <!-- Top left pad -->
+  <circle cx="60" cy="75" r="20" fill="#ffffff"/>
+  
+  <!-- Top right pad -->
+  <circle cx="140" cy="75" r="20" fill="#ffffff"/>
+  
+  <!-- Bottom left pad -->
+  <circle cx="75" cy="155" r="18" fill="#ffffff"/>
+  
+  <!-- Bottom right pad -->
+  <circle cx="125" cy="155" r="18" fill="#ffffff"/>
+  
+  <!-- Highlight on main pad -->
+  <circle cx="95" cy="125" r="8" fill="#fbbf24" opacity="0.4"/>
+  
+  <!-- Subtle shadow effect for depth -->
+  <defs>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  
+  <!-- Apply shadow to entire paw -->
+  <g filter="url(#shadow)">
+    <circle cx="100" cy="130" r="28" fill="none"/>
+  </g>
+</svg>
