@@ -12,13 +12,19 @@ import {
     Zap,
     Heart,
     ShieldCheck,
-    Sparkles
+    Sparkles,
+    UserPlus,
+    ShoppingBag,
+    PackagePlus
 } from 'lucide-react';
 import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 import { getSmartTip } from '../utils/smartTips';
+import AddClientModal from '../components/AddClientModal';
+import AddProductModal from '../components/AddProductModal';
+import RegisterSaleModal from '../components/RegisterSaleModal';
 
 const DashboardHome = () => {
     const navigate = useNavigate();
@@ -190,9 +196,9 @@ const DashboardHome = () => {
             animate="visible"
             className="space-y-12"
         >
-            {/* Boas-vindas */}
-            <motion.div variants={cardVariants} className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
+            {/* Boas-vindas e Ações Rápidas */}
+            <motion.div variants={cardVariants} className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
+                <div className="flex-1">
                     <div className="flex items-center gap-3 text-amber-500 font-black uppercase tracking-[0.3em] text-[10px] mb-3">
                         <Zap size={14} fill="currentColor" />
                         Visão Geral de Hoje
@@ -207,14 +213,14 @@ const DashboardHome = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.5 }}
-                            className={`mt-4 p-4 rounded-2xl border flex items-start gap-4 max-w-2xl bg-${dailyTip.color}-50 border-${dailyTip.color}-100`}
+                            className={`mt-4 p-4 rounded-2xl border flex items-start gap-4 max-w-xl bg-${dailyTip.color}-50 border-${dailyTip.color}-100`}
                         >
                             <div className={`p-2 bg-white rounded-lg text-${dailyTip.color}-500 shadow-sm`}>
                                 <Sparkles size={18} fill="currentColor" className="animate-pulse" />
                             </div>
                             <div>
                                 <span className={`text-[10px] font-black uppercase tracking-wider text-${dailyTip.color}-600 mb-1 block`}>
-                                    Dica do Dia
+                                    Dica de Retenção
                                 </span>
                                 <p className={`text-sm font-bold text-${dailyTip.color}-800 leading-snug`}>
                                     "{dailyTip.text}"
@@ -224,14 +230,28 @@ const DashboardHome = () => {
                     )}
                 </div>
 
-                <div className="flex items-center gap-4 bg-white p-2 pr-6 rounded-2xl shadow-sm border border-slate-100">
-                    <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-                        <Calendar size={24} />
-                    </div>
-                    <div>
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Data de Hoje</div>
-                        <div className="text-sm font-black text-slate-900 leading-none">{new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-                    </div>
+                <div className="flex flex-wrap gap-3">
+                    <button
+                        onClick={() => setIsAddClientOpen(true)}
+                        className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-5 py-3 rounded-2xl font-black transition-all shadow-lg shadow-amber-200 active:scale-95 group flex-1 sm:flex-none justify-center"
+                    >
+                        <UserPlus size={18} className="group-hover:translate-x-0.5 transition-transform" />
+                        <span className="leading-none text-sm">Cliente</span>
+                    </button>
+                    <button
+                        onClick={() => setIsSaleModalOpen(true)}
+                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-2xl font-black transition-all shadow-lg shadow-emerald-200 active:scale-95 group flex-1 sm:flex-none justify-center"
+                    >
+                        <ShoppingBag size={18} className="group-hover:rotate-12 transition-transform" />
+                        <span className="leading-none text-sm">Venda</span>
+                    </button>
+                    <button
+                        onClick={() => setIsAddProductOpen(true)}
+                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-3 rounded-2xl font-black transition-all shadow-lg shadow-indigo-200 active:scale-95 group flex-1 sm:flex-none justify-center"
+                    >
+                        <PackagePlus size={18} className="group-hover:-translate-y-0.5 transition-transform" />
+                        <span className="leading-none text-sm">Produto</span>
+                    </button>
                 </div>
             </motion.div>
 
@@ -388,6 +408,25 @@ const DashboardHome = () => {
                     </div>
                 </motion.div >
             </div >
+
+            <AddClientModal
+                isOpen={isAddClientOpen}
+                onClose={() => setIsAddClientOpen(false)}
+                onSuccess={loadDashboardData}
+            />
+
+            <AddProductModal
+                isOpen={isAddProductOpen}
+                onClose={() => setIsAddProductOpen(false)}
+                onSuccess={loadDashboardData}
+            />
+
+            <RegisterSaleModal
+                isOpen={isSaleModalOpen}
+                onClose={() => setIsSaleModalOpen(false)}
+                onSuccess={loadDashboardData}
+                client={null}
+            />
         </motion.div >
     );
 };
