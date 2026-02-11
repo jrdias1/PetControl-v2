@@ -11,11 +11,14 @@ import {
     PawPrint,
     Zap,
     Heart,
-    ShieldCheck
+    ShieldCheck,
+    Sparkles
 } from 'lucide-react';
 import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+
+import { getSmartTip } from '../utils/smartTips';
 
 const DashboardHome = () => {
     const navigate = useNavigate();
@@ -28,6 +31,7 @@ const DashboardHome = () => {
     const [autoStatus, setAutoStatus] = useState({ total: 0, sent: 0, pending: 0, failed: 0 });
     const [topFieis, setTopFieis] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [dailyTip, setDailyTip] = useState(null);
 
     useEffect(() => {
         const loadDashboardData = async () => {
@@ -71,12 +75,15 @@ const DashboardHome = () => {
                 const clientesFieis = Object.values(comprasPorCliente).filter(count => count > 1).length;
                 const taxaRetorno = baseMonitorada > 0 ? Math.round((clientesFieis / baseMonitorada) * 100) : 0;
 
-                setStats({
+                const currentStats = {
                     mensagensEnviadas,
                     taxaRetorno,
                     baseMonitorada,
                     emRisco
-                });
+                };
+
+                setStats(currentStats);
+                setDailyTip(getSmartTip(currentStats));
 
                 // Top Fiéis
                 const fieisData = Object.entries(comprasPorCliente)
@@ -193,9 +200,28 @@ const DashboardHome = () => {
                     <h1 className="text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tighter">
                         Olá, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-amber-600">{api.getCurrentUserName() || 'Veterinário'}</span> 👋
                     </h1>
-                    <p className="text-slate-500 text-lg font-medium mt-2 italic">
-                        "Seus pets estão bem cuidados hoje. Vamos ver como está o movimento?"
-                    </p>
+
+                    {/* Dica Diária Dinâmica */}
+                    {dailyTip && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.5 }}
+                            className={`mt-4 p-4 rounded-2xl border flex items-start gap-4 max-w-2xl bg-${dailyTip.color}-50 border-${dailyTip.color}-100`}
+                        >
+                            <div className={`p-2 bg-white rounded-lg text-${dailyTip.color}-500 shadow-sm`}>
+                                <Sparkles size={18} fill="currentColor" className="animate-pulse" />
+                            </div>
+                            <div>
+                                <span className={`text-[10px] font-black uppercase tracking-wider text-${dailyTip.color}-600 mb-1 block`}>
+                                    Dica do Dia
+                                </span>
+                                <p className={`text-sm font-bold text-${dailyTip.color}-800 leading-snug`}>
+                                    "{dailyTip.text}"
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-4 bg-white p-2 pr-6 rounded-2xl shadow-sm border border-slate-100">
