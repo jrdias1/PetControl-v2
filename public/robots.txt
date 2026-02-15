@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://pet-control-v2.vercel.app/sitemap.xml
+Sitemap: https://petcontrol.essencialcomunica.com.br/sitemap.xml
